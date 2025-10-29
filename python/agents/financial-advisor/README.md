@@ -68,7 +68,7 @@ to implement this workflow.
     ```bash
     # Clone this repository.
     git clone https://github.com/google/adk-samples.git
-    cd adk-samples/python/agents/financial_advisor
+    cd adk-samples/python/agents/financial-advisor
     # Install the package and dependencies.
     uv sync
     ```
