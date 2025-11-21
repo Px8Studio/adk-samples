@@ -1,0 +1,24 @@
+{
+  "datasets": [
+    {
+      "type": "bigquery",
+      "name": "dnb_statistics",
+      "project_id": "woven-art-475517-n4",
+      "compute_project_id": "woven-art-475517-n4",
+      "dataset_id": "dnb_statistics",
+      "description": "DNB (De Nederlandsche Bank) Statistics dataset containing Dutch financial and economic data across multiple categories including insurance & pensions, financial markets, balance of payments, and monetary statistics. Tables follow the naming convention: category__subcategory__endpoint_name. Example tables: insurance_pensions__insurers__insurance_corps_balance_sheet_quarter, financial_markets__interest_rates__market_interest_rates, financial_markets__bond_yields__dutch_state_loans."
+    },
+    {
+      "type": "bigquery",
+      "name": "dnb_public_register",
+      "project_id": "woven-art-475517-n4",
+      "compute_project_id": "woven-art-475517-n4",
+      "dataset_id": "dnb_public_register",
+      "description": "DNB Public Register dataset containing regulatory information about financial institutions supervised by De Nederlandsche Bank. Includes metadata about register types, entity information (companies, branches, related entities), and publications (decisions, measures, notifications). Tables include: metadata__register_types, entities__companies, entities__branches, entities__related_entities, publications__all."
+    }
+  ],
+  "cross_dataset_relations": {
+    "foreign_keys": [],
+    "notes": "Both datasets contain information about Dutch financial institutions. dnb_statistics provides quantitative data and time-series analysis, while dnb_public_register provides regulatory and institutional metadata. These can be joined for comprehensive analysis of regulated entities."
+  }
+}
