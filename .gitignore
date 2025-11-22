@@ -210,4 +210,4 @@ adk_web_log*.txt
 bin/
 
 # Local VSCode settings
-.vscode/
+# .vscode/

@@ -1,0 +1,98 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "ADK Web: Upgrade google-adk[web]",
+			"type": "process",
+			"command": "uv",
+			"args": [
+				"pip",
+				"install",
+				"--upgrade",
+				"google-adk[web]"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}\\python\\agents\\data-science"
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "ADK Web: Start API Server (data-science)",
+			"type": "process",
+			"command": "uv",
+			"args": [
+				"run",
+				"adk",
+				"api_server",
+				"--host",
+				"0.0.0.0",
+				"--port",
+				"8000",
+				"--allow_origins",
+				"http://localhost:4200",
+				"."
+			],
+			"options": {
+				"cwd": "${workspaceFolder}\\python\\agents\\data-science"
+			},
+			"isBackground": true,
+			"problemMatcher": [
+				{
+					"pattern": [
+						{
+							"regexp": "^(.*)$",
+							"message": 1
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "INFO:\\s+Started server process.*",
+						"endsPattern": "INFO:\\s+Uvicorn running on .*"
+					}
+				}
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "ADK Web: Start Frontend (latest adk-web)",
+			"type": "process",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"if (!(Test-Path node_modules)) { npm install }; npm run serve -- --backend=http://localhost:8000"
+			],
+			"options": {
+				"cwd": "C:\\Users\\rjjaf\\_Projects\\adk-web"
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "ADK Web: Launch Latest Dev UI",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Write-Host 'ADK Dev UI tasks started (backend + frontend).'"
+			],
+			"dependsOn": [
+				"ADK Web: Start API Server (data-science)",
+				"ADK Web: Start Frontend (latest adk-web)"
+			],
+			"dependsOrder": "sequence",
+			"problemMatcher": []
+		}
+	]
+}
