@@ -176,12 +176,19 @@ def load_database_settings_in_context(callback_context: CallbackContext):
 def get_root_agent() -> LlmAgent:
     tools = [call_analytics_agent]
     sub_agents = []
+    
+    # Track which tools and agents have been added to avoid duplicates
+    added_bq = False
+    added_alloydb = False
+    
     for dataset in _dataset_config["datasets"]:
-        if dataset["type"] == "bigquery":
+        if dataset["type"] == "bigquery" and not added_bq:
             tools.append(call_bigquery_agent)
             sub_agents.append(bqml_agent)
-        elif dataset["type"] == "alloydb":
+            added_bq = True
+        elif dataset["type"] == "alloydb" and not added_alloydb:
             tools.append(call_alloydb_agent)
+            added_alloydb = True
 
     agent = LlmAgent(
         model=os.getenv("ROOT_AGENT_MODEL", "gemini-2.5-flash"),
