@@ -3,33 +3,32 @@
 import asyncio
 import json
 import logging
-import os
 import warnings
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# Load environment variables from .env file BEFORE importing agent
+load_dotenv(Path(__file__).parent / ".env")
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from google.adk.runners import Runner
-from google.adk.agents.run_config import RunConfig, StreamingMode
+from fastapi.staticfiles import StaticFiles
 from google.adk.agents.live_request_queue import LiveRequestQueue
+from google.adk.agents.run_config import RunConfig, StreamingMode
+from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from google_search_agent.agent import agent
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 # Suppress Pydantic serialization warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
-
-# Load environment variables from .env file
-load_dotenv(Path(__file__).parent / ".env")
 
 # Application name constant
 APP_NAME = "bidi-demo"
@@ -41,37 +40,42 @@ APP_NAME = "bidi-demo"
 app = FastAPI()
 
 # Mount static files
-app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.mount(
+    "/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static"
+)
 
 # Define your session service
 session_service = InMemorySessionService()
 
 # Define your runner
-runner = Runner(
-    app_name=APP_NAME,
-    agent=agent,
-    session_service=session_service
-)
+runner = Runner(app_name=APP_NAME, agent=agent, session_service=session_service)
 
 # ========================================
 # HTTP Endpoints
 # ========================================
+
 
 @app.get("/")
 async def root():
     """Serve the index.html page."""
     return FileResponse(Path(__file__).parent / "static" / "index.html")
 
+
 # ========================================
 # WebSocket Endpoint
 # ========================================
 
+
 @app.websocket("/ws/{user_id}/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str) -> None:
+async def websocket_endpoint(
+    websocket: WebSocket, user_id: str, session_id: str
+) -> None:
     """WebSocket endpoint for bidirectional streaming with ADK."""
-    logger.debug(f"WebSocket connection request: user_id={user_id}, session_id={session_id}")
+    logger.debug(
+        f"WebSocket connection request: user_id={user_id}, session_id={session_id}"
+    )
     await websocket.accept()
-    logger.debug(f"WebSocket connection accepted")
+    logger.debug("WebSocket connection accepted")
 
     # ========================================
     # Phase 2: Session Initialization (once per streaming session)
@@ -93,7 +97,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
             output_audio_transcription=types.AudioTranscriptionConfig(),
             session_resumption=types.SessionResumptionConfig(),
         )
-        logger.debug(f"Native audio model detected: {model_name}, using AUDIO response modality")
+        logger.debug(
+            f"Native audio model detected: {model_name}, using AUDIO response modality"
+        )
     else:
         # Half-cascade models support TEXT response modality for faster performance
         response_modalities = ["TEXT"]
@@ -104,20 +110,18 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
             output_audio_transcription=None,
             session_resumption=types.SessionResumptionConfig(),
         )
-        logger.debug(f"Half-cascade model detected: {model_name}, using TEXT response modality")
+        logger.debug(
+            f"Half-cascade model detected: {model_name}, using TEXT response modality"
+        )
     logger.debug(f"RunConfig created: {run_config}")
 
     # Get or create session (handles both new sessions and reconnections)
     session = await session_service.get_session(
-        app_name=APP_NAME,
-        user_id=user_id,
-        session_id=session_id
+        app_name=APP_NAME, user_id=user_id, session_id=session_id
     )
     if not session:
         await session_service.create_session(
-            app_name=APP_NAME,
-            user_id=user_id,
-            session_id=session_id
+            app_name=APP_NAME, user_id=user_id, session_id=session_id
         )
 
     live_request_queue = LiveRequestQueue()
@@ -139,8 +143,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                 logger.debug(f"Received binary audio chunk: {len(audio_data)} bytes")
 
                 audio_blob = types.Blob(
-                    mime_type="audio/pcm;rate=16000",
-                    data=audio_data
+                    mime_type="audio/pcm;rate=16000", data=audio_data
                 )
                 live_request_queue.send_realtime(audio_blob)
 
@@ -154,36 +157,40 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
                 # Extract text from JSON and send to LiveRequestQueue
                 if json_message.get("type") == "text":
                     logger.debug(f"Sending text content: {json_message['text']}")
-                    content = types.Content(parts=[types.Part(text=json_message["text"])])
+                    content = types.Content(
+                        parts=[types.Part(text=json_message["text"])]
+                    )
                     live_request_queue.send_content(content)
 
                 # Handle image data
                 elif json_message.get("type") == "image":
                     import base64
-                    logger.debug(f"Received image data")
+
+                    logger.debug("Received image data")
 
                     # Decode base64 image data
                     image_data = base64.b64decode(json_message["data"])
                     mime_type = json_message.get("mimeType", "image/jpeg")
 
-                    logger.debug(f"Sending image: {len(image_data)} bytes, type: {mime_type}")
+                    logger.debug(
+                        f"Sending image: {len(image_data)} bytes, type: {mime_type}"
+                    )
 
                     # Send image as blob
-                    image_blob = types.Blob(
-                        mime_type=mime_type,
-                        data=image_data
-                    )
+                    image_blob = types.Blob(mime_type=mime_type, data=image_data)
                     live_request_queue.send_realtime(image_blob)
 
     async def downstream_task() -> None:
         """Receives Events from run_live() and sends to WebSocket."""
         logger.debug("downstream_task started, calling runner.run_live()")
-        logger.debug(f"Starting run_live with user_id={user_id}, session_id={session_id}")
+        logger.debug(
+            f"Starting run_live with user_id={user_id}, session_id={session_id}"
+        )
         async for event in runner.run_live(
             user_id=user_id,
             session_id=session_id,
             live_request_queue=live_request_queue,
-            run_config=run_config
+            run_config=run_config,
         ):
             event_json = event.model_dump_json(exclude_none=True, by_alias=True)
             logger.debug(f"[SERVER] Event: {event_json}")
@@ -194,10 +201,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str
     # Exceptions from either task will propagate and cancel the other task
     try:
         logger.debug("Starting asyncio.gather for upstream and downstream tasks")
-        await asyncio.gather(
-            upstream_task(),
-            downstream_task()
-        )
+        await asyncio.gather(upstream_task(), downstream_task())
         logger.debug("asyncio.gather completed normally")
     except WebSocketDisconnect:
         logger.debug("Client disconnected normally")

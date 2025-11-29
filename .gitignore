@@ -141,6 +141,7 @@ ENV/
 env.bak/
 venv.bak/
 .env*
+!.env.example
 
 # Spyder project settings
 .spyderproject
@@ -211,3 +212,12 @@ bin/
 
 # Local VSCode settings
 .vscode/
+
+# Claude Code
+.claude/
+
+# Documentation
+.docs/
+
+# ADK
+.adk/
