@@ -221,3 +221,4 @@ bin/
 
 # ADK
 .adk/
+# .vscode/
