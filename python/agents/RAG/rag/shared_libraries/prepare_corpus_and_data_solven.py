@@ -40,7 +40,7 @@ CORPUS_DISPLAY_NAME = "EIOPA_Insurance_Taxonomy_Corpus"
 CORPUS_DESCRIPTION = "Corpus containing EIOPA insurance taxonomy documentation"
 # --- Please update this path to your local directory ---
 PDF_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "eiopa", "insurance", "input"))
-
+ 
 ENV_FILE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env")) # Assuming .env is two directories up
 
 
