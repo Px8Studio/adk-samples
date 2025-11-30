@@ -63,3 +63,17 @@ It depends on the **purpose** of your agent:
 *   **Admin/Librarian Agent:** If the agent is meant to help you *manage* your knowledge base, then yes, adding `upload_file`, `delete_file`, and `update_corpus` would be very powerful.
 
 For now, your agent is configured as a **Q&A Agent**, so restricting it to just "Read" capabilities (Retrieval + Listing) is the secure and correct design.
+
+## Potential Enhancements for Q&A
+
+While the current setup is sufficient for most needs, there are two "Read" tools that could enhance a Q&A agent in specific scenarios:
+
+1.  **`get_file(name)`**:
+    *   **Use Case:** If users often ask about document metadata, like *"When was the 'Safety Manual' updated?"* or *"Who is the author of this file?"*.
+    *   **Value:** Allows the agent to answer questions about the *documents themselves*, not just their content.
+
+2.  **`list_corpora()`**:
+    *   **Use Case:** If you have multiple knowledge bases (e.g., "HR Policies", "Technical Docs", "Sales Material") and want the agent to switch between them or know what categories of information are available.
+    *   **Value:** Enables a multi-domain Q&A agent.
+
+**Recommendation:** Stick with the current setup unless you specifically need metadata answers or multi-corpus support. Simpler agents are more reliable.
