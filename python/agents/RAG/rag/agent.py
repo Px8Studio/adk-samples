@@ -47,7 +47,7 @@ if rag_corpus:
     tools.append(ask_vertex_retrieval)
 
 root_agent = Agent(
-    model='gemini-2.5-flash',
+    model='gemini-3-pro-preview',
     name='ask_rag_agent',
     instruction=return_instructions_root(),
     tools=tools,
