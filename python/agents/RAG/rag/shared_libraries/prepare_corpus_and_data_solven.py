@@ -17,6 +17,7 @@ from google.api_core.exceptions import ResourceExhausted
 import vertexai
 from vertexai.preview import rag
 import os
+from dotenv import load_dotenv, set_key
 import requests
 import tempfile
 
@@ -97,13 +98,9 @@ def upload_pdf_to_corpus(corpus_name, pdf_path, display_name, description):
 
 def update_env_file(corpus_name, env_file_path):
     """Updates the .env file with the corpus name."""
-    try:
-        set_key(env_file_path, "RAG_CORPUS", corpus_name)
-        print(f"Updated RAG_CORPUS in {env_file_path} to {corpus_name}")
-    except Exception as e:
-        print(f"Error updating .env file: {e}")
-
-def list_corpus_files(corpus_name):
+    set_key(env_file_path, "RAG_CORPUS", corpus_name)
+    print(f"Updated RAG_CORPUS in {env_file_path} to {corpus_name}")
+def list_corpus_files(corpus_name): # noqa
   """Lists files in the specified corpus."""
   files = list(rag.list_files(corpus_name=corpus_name))
   print(f"Total files in corpus: {len(files)}")
