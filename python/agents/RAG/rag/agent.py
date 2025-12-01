@@ -18,7 +18,7 @@ import os
 import vertexai
 from dotenv import load_dotenv
 from google.adk.agents import Agent
-from google.adk.tools.retrieval.vertex_ai_rag_retrieval import VertexAiRagRetrieval
+
 from vertexai.preview import rag
 
 from .prompts import return_instructions_root
@@ -156,6 +156,47 @@ def list_rag_corpora() -> list[str]:
         return [f"Error listing corpora: {e}"]
 
 
+def retrieve_rag_documentation(query: str) -> str:
+    """Use this tool to retrieve documentation and reference materials for the question from the RAG corpus.
+
+    Args:
+        query: The query string to search within the corpus.
+    """
+    # CRITICAL: Re-initialize vertexai for each call to ensure correct location
+    rag_corpus = os.environ.get("RAG_CORPUS")
+    if not rag_corpus:
+        return "No RAG corpus configured."
+
+    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    location = _extract_location_from_corpus(rag_corpus) or os.environ.get(
+        "GOOGLE_CLOUD_LOCATION"
+    )
+
+    if project_id and location:
+        vertexai.init(project=project_id, location=location)
+
+    try:
+        rag_similarity_top_k = int(os.environ.get("RAG_SIMILARITY_TOP_K", 3))
+        rag_vector_distance_threshold = float(
+            os.environ.get("RAG_VECTOR_DISTANCE_THRESHOLD", 0.5)
+        )
+
+        rag_retrieval_config = rag.RagRetrievalConfig(
+            top_k=rag_similarity_top_k,
+            filter=rag.Filter(vector_distance_threshold=rag_vector_distance_threshold),
+        )
+
+        response = rag.retrieval_query(
+            rag_resources=[rag.RagResource(rag_corpus=rag_corpus)],
+            text=query,
+            rag_retrieval_config=rag_retrieval_config,
+        )
+        return str(response)
+    except Exception as e:
+        logger.error(f"Error retrieving from RAG: {e}")
+        return f"Error retrieving from RAG: {e}"
+
+
 # Build tools list conditionally based on RAG_CORPUS availability
 tools = []
 rag_corpus = os.environ.get("RAG_CORPUS")
@@ -166,23 +207,7 @@ rag_similarity_top_k = int(os.environ.get("RAG_SIMILARITY_TOP_K"))
 rag_vector_distance_threshold = float(os.environ.get("RAG_VECTOR_DISTANCE_THRESHOLD"))
 
 if rag_corpus:
-    ask_vertex_retrieval = VertexAiRagRetrieval(
-        name="retrieve_rag_documentation",
-        description=(
-            "Use this tool to retrieve documentation and reference materials for the question from the RAG corpus,"
-        ),
-        rag_resources=[
-            rag.RagResource(
-                # please fill in your own rag corpus
-                # here is a sample rag corpus for testing purpose
-                # e.g. projects/123/locations/us-central1/ragCorpora/456
-                rag_corpus=rag_corpus
-            )
-        ],
-        similarity_top_k=rag_similarity_top_k,
-        vector_distance_threshold=rag_vector_distance_threshold,
-    )
-    tools.append(ask_vertex_retrieval)
+    tools.append(retrieve_rag_documentation)
     tools.append(list_available_sources)
     tools.append(get_file_metadata)
     tools.append(list_rag_corpora)
