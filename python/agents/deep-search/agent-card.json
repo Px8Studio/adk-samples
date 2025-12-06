@@ -1,0 +1,24 @@
+{
+  "name": "DeepSearch",
+  "description": "An agent that can perform deep searches on specified topics.",
+  "tools": [
+    {
+      "function_declarations": [
+        {
+          "name": "deep_search",
+          "description": "Performs a deep search for information on a given query.",
+          "parameters": {
+            "type": "OBJECT",
+            "properties": {
+              "query": {
+                "type": "STRING",
+                "description": "The search query."
+              }
+            },
+            "required": ["query"]
+          }
+        }
+      ]
+    }
+  ]
+}
