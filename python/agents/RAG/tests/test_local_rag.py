@@ -53,6 +53,17 @@ def test_local_retrieval():
     else:
         logger.info("Test PASSED: Successfully retrieved documentation.")
 
+    # Test metadata retrieval (Pick the first file from sources if available)
+    if sources and not sources[0].startswith("Collection contains"):
+        test_file = sources[0]
+        logger.info(f"Testing get_chroma_file_metadata for '{test_file}'...")
+        metadata = local_rag_tool.get_chroma_file_metadata(test_file)
+        print(f"Metadata: {metadata}")
+        if "No metadata found" in metadata or "Error" in metadata:
+            logger.warning("Metadata test inconclusive/failed.")
+        else:
+            logger.info("Metadata test PASSED.")
+
 
 if __name__ == "__main__":
     load_dotenv()
