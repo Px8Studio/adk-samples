@@ -46,7 +46,9 @@ def _get_or_initialize_query_engine():
     from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
     chroma_db_path = os.environ.get("CHROMA_DB_PATH")
-    collection_name = os.environ.get("CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3")
+    collection_name = os.environ.get(
+        "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3_v2"
+    )
 
     if not chroma_db_path:
         raise ValueError("CHROMA_DB_PATH environment variable is not set.")
@@ -123,7 +125,7 @@ def list_chroma_sources() -> list[str]:
 
         chroma_db_path = os.environ.get("CHROMA_DB_PATH")
         collection_name = os.environ.get(
-            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3"
+            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3_v2"
         )
 
         if not chroma_db_path:
@@ -169,7 +171,7 @@ def get_chroma_file_metadata(file_name: str) -> str:
 
         chroma_db_path = os.environ.get("CHROMA_DB_PATH")
         collection_name = os.environ.get(
-            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3"
+            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3_v2"
         )
 
         if not chroma_db_path:
