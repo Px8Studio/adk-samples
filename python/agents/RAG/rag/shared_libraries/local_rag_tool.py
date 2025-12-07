@@ -112,6 +112,7 @@ def _get_or_initialize_query_engine():
         raise ValueError("CHROMA_DB_PATH environment variable is not set.")
 
     logger.info(f"Initializing Local RAG with ChromaDB at {chroma_db_path}...")
+    logger.info(f"Using Chroma Collection: {collection_name}")
 
     # 1. Setup Google Embeddings
     GoogleEmbeddingClass = _get_custom_google_embedding_class()
