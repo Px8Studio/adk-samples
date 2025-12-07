@@ -208,16 +208,12 @@ rag_similarity_top_k = int(os.environ.get("RAG_SIMILARITY_TOP_K", 3))
 rag_vector_distance_threshold = float(
     os.environ.get("RAG_VECTOR_DISTANCE_THRESHOLD", 0.5)
 )
-
 tools = []
 if rag_type == "local":
     logger.info("Configuring RAG Agent for LOCAL mode (ChromaDB + Google AI API).")
     tools.append(local_rag_tool.retrieve_chroma_documentation)
     tools.append(local_rag_tool.list_chroma_sources)
-    # We don't add get_file_metadata or list_rag_corpora for local mode yet as they are Vertex specific
-
-    # Note: For Google AI API (Gemini), adk.Agent handles it via GOOGLE_API_KEY naturally
-    # if GOOGLE_GENAI_USE_VERTEXAI is 0 or unset in a specific way, but here we just pass model_name.
+    tools.append(local_rag_tool.get_chroma_file_metadata)
 
 elif rag_corpus:
     logger.info("Configuring RAG Agent for VERTEX AI mode.")

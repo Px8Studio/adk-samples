@@ -46,17 +46,15 @@ def _get_or_initialize_query_engine():
     from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
     chroma_db_path = os.environ.get("CHROMA_DB_PATH")
-    collection_name = os.environ.get("CHROMA_COLLECTION_NAME", "eiopa_insurance_corpus")
+    collection_name = os.environ.get("CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3")
 
     if not chroma_db_path:
         raise ValueError("CHROMA_DB_PATH environment variable is not set.")
 
     logger.info(f"Initializing Local RAG with ChromaDB at {chroma_db_path}...")
 
-    # 1. Setup Embeddings
-    embed_model = HuggingFaceEmbedding(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    # 1. Setup Embeddings (Must match ingestion model!)
+    embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3", trust_remote_code=True)
     Settings.embed_model = embed_model
     # We are only doing retrieval, so we don't strictly need an LLM here for the index itself,
     # but the query engine might use it for response synthesis if we let it.
@@ -125,7 +123,7 @@ def list_chroma_sources() -> list[str]:
 
         chroma_db_path = os.environ.get("CHROMA_DB_PATH")
         collection_name = os.environ.get(
-            "CHROMA_COLLECTION_NAME", "eiopa_insurance_corpus"
+            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3"
         )
 
         if not chroma_db_path:
@@ -155,3 +153,45 @@ def list_chroma_sources() -> list[str]:
     except Exception as e:
         logger.error(f"Error listing sources: {e}")
         return [f"Error listing sources: {e}"]
+
+
+def get_chroma_file_metadata(file_name: str) -> str:
+    """Returns metadata for a specific file in the local ChromaDB corpus.
+
+    Args:
+        file_name: The name of the file to get metadata for.
+
+    Returns:
+        A formatted string containing the file's metadata found in the vector store.
+    """
+    try:
+        import chromadb
+
+        chroma_db_path = os.environ.get("CHROMA_DB_PATH")
+        collection_name = os.environ.get(
+            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3"
+        )
+
+        if not chroma_db_path:
+            return "CHROMA_DB_PATH not set."
+
+        db = chromadb.PersistentClient(path=chroma_db_path)
+        collection = db.get_collection(collection_name)
+
+        # Query for items where file_name matches
+        # Note: ChromaDB filtering syntax
+        results = collection.get(
+            where={"file_name": file_name}, limit=1, include=["metadatas"]
+        )
+
+        metadatas = results.get("metadatas", [])
+        if not metadatas or not metadatas[0]:
+            return f"No metadata found for file: {file_name}"
+
+        # Return the first matching metadata dict
+        # We assume all chunks for the same file share largely the same document-level metadata
+        return str(metadatas[0])
+
+    except Exception as e:
+        logger.error(f"Error getting file metadata: {e}")
+        return f"Error getting file metadata: {e}"
