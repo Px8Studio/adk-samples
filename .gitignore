@@ -210,8 +210,8 @@ adk_web_log*.txt
 # Local binary directories
 bin/
 
-# Local VSCode settings
-.vscode/
+# # Local VSCode settings
+# .vscode/
 
 # Claude Code
 .claude/
