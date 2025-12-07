@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from typing import Any, List
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -11,25 +12,83 @@ def check_dependencies():
     """Checks if required packages are installed."""
     try:
         import chromadb
+        import google.generativeai as genai
         from llama_index.core import (
             VectorStoreIndex,
             StorageContext,
             Settings,
         )
         from llama_index.vector_stores.chroma import ChromaVectorStore
-        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+        from llama_index.core.embeddings import BaseEmbedding
 
         return True
     except ImportError as e:
         logger.error(f"Missing dependency for local RAG: {e}")
-        logger.error(
-            "Please install required packages: uv add chromadb llama-index-vector-stores-chroma llama-index-embeddings-huggingface"
-        )
         return False
 
 
-# Global/module-level cache for the query engine to avoid reloading on every call
+# Global/module-level cache
 _QUERY_ENGINE = None
+
+
+class GoogleGenAIEmbedding:
+    """Custom Embedding class using google-generativeai SDK directly (Simplified for Tool)."""
+
+    # Note: We duplicate this class here to avoid module import issues.
+    # In a proper package structure, this would be in a shared utility.
+
+    def __init__(
+        self, model_name: str = "models/text-embedding-004", **kwargs: Any
+    ) -> None:
+        self.model_name = model_name
+        import google.generativeai as genai
+
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY is required.")
+        genai.configure(api_key=api_key)
+
+    # LlamaIndex expects these methods if we duck-type or wrap it properly
+    # But for simplicity in the tool, we just need to pass it to Settings.embed_model
+    # IF we inherit from BaseEmbedding. Since BaseEmbedding requires pydantic,
+    # and we want to avoid complex inheritance in a simple tool file if possible,
+    # let's do it properly by importing BaseEmbedding.
+    pass
+
+
+def _get_custom_google_embedding_class():
+    from llama_index.core.embeddings import BaseEmbedding
+    import google.generativeai as genai
+
+    class InternalGoogleGenAIEmbedding(BaseEmbedding):
+        def __init__(
+            self, model_name: str = "models/text-embedding-004", **kwargs: Any
+        ) -> None:
+            super().__init__(model_name=model_name, **kwargs)
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY is required.")
+            genai.configure(api_key=api_key)
+
+        def _get_query_embedding(self, query: str) -> List[float]:
+            result = genai.embed_content(
+                model=self.model_name, content=query, task_type="retrieval_query"
+            )
+            return result["embedding"]
+
+        def _get_text_embedding(self, text: str) -> List[float]:
+            result = genai.embed_content(
+                model=self.model_name, content=text, task_type="retrieval_document"
+            )
+            return result["embedding"]
+
+        async def _aget_query_embedding(self, query: str) -> List[float]:
+            return self._get_query_embedding(query)
+
+        async def _aget_text_embedding(self, text: str) -> List[float]:
+            return self._get_text_embedding(text)
+
+    return InternalGoogleGenAIEmbedding
 
 
 def _get_or_initialize_query_engine():
@@ -41,13 +100,12 @@ def _get_or_initialize_query_engine():
         raise ImportError("Missing dependencies for local RAG.")
 
     import chromadb
-    from llama_index.core import VectorStoreIndex, StorageContext, Settings
+    from llama_index.core import VectorStoreIndex, Settings
     from llama_index.vector_stores.chroma import ChromaVectorStore
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
     chroma_db_path = os.environ.get("CHROMA_DB_PATH")
     collection_name = os.environ.get(
-        "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3_v2"
+        "CHROMA_COLLECTION_NAME", "eiopa_insurance_google_004"
     )
 
     if not chroma_db_path:
@@ -55,12 +113,10 @@ def _get_or_initialize_query_engine():
 
     logger.info(f"Initializing Local RAG with ChromaDB at {chroma_db_path}...")
 
-    # 1. Setup Embeddings (Must match ingestion model!)
-    embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3", trust_remote_code=True)
+    # 1. Setup Google Embeddings
+    GoogleEmbeddingClass = _get_custom_google_embedding_class()
+    embed_model = GoogleEmbeddingClass(model_name="models/text-embedding-004")
     Settings.embed_model = embed_model
-    # We are only doing retrieval, so we don't strictly need an LLM here for the index itself,
-    # but the query engine might use it for response synthesis if we let it.
-    # However, we want to return raw text chunks for the agent to use, so we will use the retriever.
     Settings.llm = None
 
     # 2. Connect to ChromaDB
@@ -75,10 +131,7 @@ def _get_or_initialize_query_engine():
     )
 
     # 4. Create Retriever
-    # Using similarity_top_k from env or default to 3
     top_k = int(os.environ.get("RAG_SIMILARITY_TOP_K", 3))
-
-    # We use the retriever directly to get nodes
     retriever = index.as_retriever(similarity_top_k=top_k)
 
     _QUERY_ENGINE = retriever
@@ -100,8 +153,6 @@ def retrieve_chroma_documentation(query: str) -> str:
 
         response_text = ""
         for i, node in enumerate(nodes, 1):
-            # node.node.get_text() gives the content
-            # node.score gives the similarity score
             score = f"{node.score:.2f}" if node.score is not None else "N/A"
             metadata = node.node.metadata or {}
             source_file = metadata.get("file_name", "Unknown File")
@@ -125,7 +176,7 @@ def list_chroma_sources() -> list[str]:
 
         chroma_db_path = os.environ.get("CHROMA_DB_PATH")
         collection_name = os.environ.get(
-            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3_v2"
+            "CHROMA_COLLECTION_NAME", "eiopa_insurance_google_004"
         )
 
         if not chroma_db_path:
@@ -134,8 +185,6 @@ def list_chroma_sources() -> list[str]:
         db = chromadb.PersistentClient(path=chroma_db_path)
         collection = db.get_collection(collection_name)
 
-        # Fetch all metadata to find unique files
-        # Warning: This scales linearly with corpus size. For large corpora, this should be cached or optimized.
         data = collection.get(include=["metadatas"])
         metadatas = data.get("metadatas", [])
 
@@ -171,7 +220,7 @@ def get_chroma_file_metadata(file_name: str) -> str:
 
         chroma_db_path = os.environ.get("CHROMA_DB_PATH")
         collection_name = os.environ.get(
-            "CHROMA_COLLECTION_NAME", "eiopa_insurance_bge_m3_v2"
+            "CHROMA_COLLECTION_NAME", "eiopa_insurance_google_004"
         )
 
         if not chroma_db_path:
@@ -180,8 +229,6 @@ def get_chroma_file_metadata(file_name: str) -> str:
         db = chromadb.PersistentClient(path=chroma_db_path)
         collection = db.get_collection(collection_name)
 
-        # Query for items where file_name matches
-        # Note: ChromaDB filtering syntax
         results = collection.get(
             where={"file_name": file_name}, limit=1, include=["metadatas"]
         )
@@ -190,8 +237,6 @@ def get_chroma_file_metadata(file_name: str) -> str:
         if not metadatas or not metadatas[0]:
             return f"No metadata found for file: {file_name}"
 
-        # Return the first matching metadata dict
-        # We assume all chunks for the same file share largely the same document-level metadata
         return str(metadatas[0])
 
     except Exception as e:

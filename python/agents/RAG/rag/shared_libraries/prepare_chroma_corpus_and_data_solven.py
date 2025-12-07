@@ -3,6 +3,7 @@ import sys
 import logging
 import nest_asyncio
 from dotenv import load_dotenv
+from typing import Any, List
 
 # Apply nest_asyncio to allow async loops in scripts (Crucial for LlamaParse)
 nest_asyncio.apply()
@@ -18,6 +19,7 @@ CHROMA_DB_PATH = r"C:\Users\rjjaf\_Projects\solven\backend\data\chroma_db"
 # Global Imports
 try:
     import chromadb
+    import google.generativeai as genai
     from llama_index.core import (
         VectorStoreIndex,
         StorageContext,
@@ -25,36 +27,55 @@ try:
         SimpleDirectoryReader,
     )
     from llama_parse import LlamaParse
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
     from llama_index.vector_stores.chroma import ChromaVectorStore
     from llama_index.core.node_parser import MarkdownNodeParser
+    from llama_index.core.embeddings import BaseEmbedding
 except ImportError as e:
     logger.error(f"Missing dependency: {e}")
     sys.exit(1)
 
 
-def check_dependencies():
-    """Checks if required packages are installed."""
-    # Already checked via global imports which fail fast
-    pass
+class GoogleGenAIEmbedding(BaseEmbedding):
+    """Custom Embedding class using google-generativeai SDK directly."""
+
+    def __init__(
+        self, model_name: str = "models/text-embedding-004", **kwargs: Any
+    ) -> None:
+        super().__init__(model_name=model_name, **kwargs)
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY is required.")
+        genai.configure(api_key=api_key)
+
+    def _get_query_embedding(self, query: str) -> List[float]:
+        return self._get_text_embedding(query)
+
+    def _get_text_embedding(self, text: str) -> List[float]:
+        result = genai.embed_content(
+            model=self.model_name, content=text, task_type="retrieval_document"
+        )
+        return result["embedding"]
+
+    async def _aget_query_embedding(self, query: str) -> List[float]:
+        return self._get_query_embedding(query)
+
+    async def _aget_text_embedding(self, text: str) -> List[float]:
+        return self._get_text_embedding(text)
 
 
 def main():
     load_dotenv()
 
     # --- SOTA UPGRADE 1: The Embedder ---
-    # Replaced 'all-MiniLM-L6-v2' (384 dim) with 'BAAI/bge-m3' (1024 dim).
-    # BGE-M3 is currently one of the best open-source models for complex retrieval.
-    # It supports a larger context window (8192 tokens) suitable for long insurance clauses.
-    logger.info("Initializing SOTA local embeddings (BGE-M3)...")
+    # Switching to Google's 'text-embedding-004' (768 dim).
+    # This runs in the cloud and is extremely fast.
+    logger.info("Initializing Google Cloud Embeddings (text-embedding-004)...")
 
-    embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3", trust_remote_code=True)
+    embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004")
     Settings.embed_model = embed_model
     Settings.llm = None
 
     # --- SOTA UPGRADE 2: The Parser (LlamaParse) ---
-    # Standard parsers break tables. LlamaParse converts PDFs to Markdown,
-    # preserving the structural integrity of financial tables in EIOPA docs.
     logger.info("Initializing LlamaParse...")
 
     # Get API Key from .env (LLAMA_CLOUD_API_KEY)
@@ -78,9 +99,8 @@ def main():
     logger.info(f"Initializing ChromaDB at {CHROMA_DB_PATH}...")
     db = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
-    # We use a collection name specific to the model to avoid dimension conflicts
-    # (MiniLM is 384 dims, BGE-M3 is 1024 dims - they cannot mix!)
-    chroma_collection = db.get_or_create_collection("eiopa_insurance_bge_m3_v2")
+    # We use a NEW collection for the Google model (768 dims)
+    chroma_collection = db.get_or_create_collection("eiopa_insurance_google_004")
 
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
@@ -94,9 +114,6 @@ def main():
     logger.info(f"Parsed {len(documents)} document pages/sections.")
 
     # --- SOTA UPGRADE 4: Markdown Node Splitting ---
-    # Because we parsed to Markdown, we use a specific splitter that respects
-    # headers and table boundaries rather than splitting in mid-sentence.
-
     logger.info("Splitting documents based on Markdown structure...")
     node_parser = MarkdownNodeParser()
     nodes = node_parser.get_nodes_from_documents(documents)
