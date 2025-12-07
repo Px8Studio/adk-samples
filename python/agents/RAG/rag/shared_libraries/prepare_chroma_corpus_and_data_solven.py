@@ -15,21 +15,31 @@ logger = logging.getLogger(__name__)
 PDF_DIRECTORY = r"C:\Users\rjjaf\_Projects\solven\backend\data\eiopa\insurance\input"
 CHROMA_DB_PATH = r"C:\Users\rjjaf\_Projects\solven\backend\data\chroma_db"
 
+# Global Imports
+try:
+    import chromadb
+    from llama_index.core import (
+        VectorStoreIndex,
+        StorageContext,
+        Settings,
+        SimpleDirectoryReader,
+    )
+    from llama_parse import LlamaParse
+    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+    from llama_index.vector_stores.chroma import ChromaVectorStore
+    from llama_index.core.node_parser import MarkdownNodeParser
+except ImportError as e:
+    logger.error(f"Missing dependency: {e}")
+    sys.exit(1)
+
 
 def check_dependencies():
     """Checks if required packages are installed."""
-    try:
-        import chromadb
-        from llama_index.core import VectorStoreIndex, StorageContext, Settings
-        from llama_parse import LlamaParse
-        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-    except ImportError as e:
-        logger.error(f"Missing dependency: {e}")
-        sys.exit(1)
+    # Already checked via global imports which fail fast
+    pass
 
 
 def main():
-    check_dependencies()
     load_dotenv()
 
     # --- SOTA UPGRADE 1: The Embedder ---
@@ -37,7 +47,6 @@ def main():
     # BGE-M3 is currently one of the best open-source models for complex retrieval.
     # It supports a larger context window (8192 tokens) suitable for long insurance clauses.
     logger.info("Initializing SOTA local embeddings (BGE-M3)...")
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
     embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3", trust_remote_code=True)
     Settings.embed_model = embed_model
@@ -47,8 +56,6 @@ def main():
     # Standard parsers break tables. LlamaParse converts PDFs to Markdown,
     # preserving the structural integrity of financial tables in EIOPA docs.
     logger.info("Initializing LlamaParse...")
-    from llama_parse import LlamaParse
-    from llama_index.core import SimpleDirectoryReader
 
     # Get API Key from .env (LLAMA_CLOUD_API_KEY)
     if not os.getenv("LLAMA_CLOUD_API_KEY"):
@@ -67,9 +74,6 @@ def main():
     file_extractor = {".pdf": parser}
 
     # --- SOTA UPGRADE 3: ChromaDB Configuration ---
-    import chromadb
-    from llama_index.vector_stores.chroma import ChromaVectorStore
-    from llama_index.core import StorageContext
 
     logger.info(f"Initializing ChromaDB at {CHROMA_DB_PATH}...")
     db = chromadb.PersistentClient(path=CHROMA_DB_PATH)
@@ -92,7 +96,6 @@ def main():
     # --- SOTA UPGRADE 4: Markdown Node Splitting ---
     # Because we parsed to Markdown, we use a specific splitter that respects
     # headers and table boundaries rather than splitting in mid-sentence.
-    from llama_index.core.node_parser import MarkdownNodeParser
 
     logger.info("Splitting documents based on Markdown structure...")
     node_parser = MarkdownNodeParser()
