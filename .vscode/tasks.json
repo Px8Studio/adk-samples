@@ -93,6 +93,28 @@
 			],
 			"dependsOrder": "sequence",
 			"problemMatcher": []
+		},
+		{
+			"label": "Run Chroma Corpus Prep (Solven)",
+			"type": "shell",
+			"command": "uv",
+			"args": [
+				"run",
+				"python",
+				"rag/shared_libraries/prepare_chroma_corpus_and_data_solven.py"
+			],
+			"options": {
+				"cwd": "C:\\Users\\rjjaf\\_Projects\\adk-samples\\python\\agents\\RAG"
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": false
+			}
 		}
 	]
 }

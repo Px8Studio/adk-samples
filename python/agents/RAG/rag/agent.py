@@ -22,6 +22,7 @@ from google.adk.agents import Agent
 from vertexai.preview import rag
 
 from .prompts import return_instructions_root
+from .shared_libraries import local_rag_tool
 
 load_dotenv()
 
@@ -48,6 +49,9 @@ def _extract_location_from_corpus(corpus_name: str) -> str | None:
 project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
 location = os.environ.get("GOOGLE_CLOUD_LOCATION")
 rag_corpus = os.environ.get("RAG_CORPUS")
+rag_type = os.environ.get(
+    "RAG_TYPE", "vertex_ai"
+).lower()  # Default to vertex_ai for backward compatibility
 
 # If RAG_CORPUS is set, extract and use its actual location to avoid mismatch errors
 if rag_corpus:
@@ -58,7 +62,7 @@ if rag_corpus:
     else:
         logger.warning(f"Could not extract location from RAG_CORPUS: {rag_corpus}")
 
-if project_id and location:
+if rag_type != "local" and project_id and location:
     vertexai.init(project=project_id, location=location)
 
 
@@ -197,23 +201,29 @@ def retrieve_rag_documentation(query: str) -> str:
         return f"Error retrieving from RAG: {e}"
 
 
-# Build tools list conditionally based on RAG_CORPUS availability
-tools = []
-rag_corpus = os.environ.get("RAG_CORPUS")
-
 # Configuration
 model_name = os.environ.get("MODEL_NAME")
-rag_similarity_top_k = int(os.environ.get("RAG_SIMILARITY_TOP_K"))
-rag_vector_distance_threshold = float(os.environ.get("RAG_VECTOR_DISTANCE_THRESHOLD"))
+# Handle cases where env vars might be missing for local mode defaults
+rag_similarity_top_k = int(os.environ.get("RAG_SIMILARITY_TOP_K", 3))
+rag_vector_distance_threshold = float(
+    os.environ.get("RAG_VECTOR_DISTANCE_THRESHOLD", 0.5)
+)
+tools = []
+if rag_type == "local":
+    logger.info("Configuring RAG Agent for LOCAL mode (ChromaDB + Google AI API).")
+    tools.append(local_rag_tool.retrieve_chroma_documentation)
+    tools.append(local_rag_tool.list_chroma_sources)
+    tools.append(local_rag_tool.get_chroma_file_metadata)
 
-if rag_corpus:
+elif rag_corpus:
+    logger.info("Configuring RAG Agent for VERTEX AI mode.")
     tools.append(retrieve_rag_documentation)
     tools.append(list_available_sources)
     tools.append(get_file_metadata)
     tools.append(list_rag_corpora)
 else:
     logger.warning(
-        "RAG_CORPUS environment variable not set. RAG capabilities will be disabled."
+        "RAG_CORPUS environment variable not set and RAG_TYPE is not 'local'. RAG capabilities will be disabled."
     )
 
 root_agent = Agent(

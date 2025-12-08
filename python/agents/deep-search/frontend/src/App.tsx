@@ -61,12 +61,12 @@ export default function App() {
   ): Promise<any> => {
     const startTime = Date.now();
     let lastError: Error;
-    
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       if (Date.now() - startTime > maxDuration) {
         throw new Error(`Retry timeout after ${maxDuration}ms`);
       }
-      
+
       try {
         return await fn();
       } catch (error) {
@@ -76,11 +76,11 @@ export default function App() {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    
+
     throw lastError!;
   };
 
-  const createSession = async (): Promise<{userId: string, sessionId: string, appName: string}> => {
+  const createSession = async (): Promise<{ userId: string, sessionId: string, appName: string }> => {
     const generatedSessionId = uuidv4();
     const response = await fetch(`/api/apps/app/users/u_999/sessions/${generatedSessionId}`, {
       method: "POST",
@@ -88,11 +88,11 @@ export default function App() {
         "Content-Type": "application/json"
       }
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to create session: ${response.status} ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     return {
       userId: data.userId,
@@ -135,13 +135,13 @@ export default function App() {
         textParts = parsed.content.parts
           .filter((part: any) => part.text)
           .map((part: any) => part.text);
-        
+
         // Check for function calls
         const functionCallPart = parsed.content.parts.find((part: any) => part.functionCall);
         if (functionCallPart) {
           functionCall = functionCallPart.functionCall;
         }
-        
+
         // Check for function responses
         const functionResponsePart = parsed.content.parts.find((part: any) => part.functionResponse);
         if (functionResponsePart) {
@@ -282,7 +282,7 @@ export default function App() {
     }
   };
 
-  const handleSubmit = useCallback(async (query: string, model: string, effort: string) => {
+  const handleSubmit = useCallback(async (query: string, model: string = "gemini-2.0-flash", effort: string = "medium") => {
     if (!query.trim()) return;
 
     setIsLoading(true);
@@ -291,14 +291,14 @@ export default function App() {
       let currentUserId = userId;
       let currentSessionId = sessionId;
       let currentAppName = appName;
-      
+
       if (!currentSessionId || !currentUserId || !currentAppName) {
         console.log('Creating new session...');
         const sessionData = await retryWithBackoff(createSession);
         currentUserId = sessionData.userId;
         currentSessionId = sessionData.sessionId;
         currentAppName = sessionData.appName;
-        
+
         setUserId(currentUserId);
         setSessionId(currentSessionId);
         setAppName(currentAppName);
@@ -343,7 +343,7 @@ export default function App() {
         if (!response.ok) {
           throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
         }
-        
+
         return response;
       };
 
@@ -352,7 +352,7 @@ export default function App() {
       // Handle SSE streaming
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let lineBuffer = ""; 
+      let lineBuffer = "";
       let eventDataBuffer = "";
 
       if (reader) {
@@ -363,7 +363,7 @@ export default function App() {
           if (value) {
             lineBuffer += decoder.decode(value, { stream: true });
           }
-          
+
           let eolIndex;
           // Process all complete lines in the buffer, or the remaining buffer if 'done'
           while ((eolIndex = lineBuffer.indexOf('\n')) >= 0 || (done && lineBuffer.length > 0)) {
@@ -388,7 +388,14 @@ export default function App() {
               eventDataBuffer += line.substring(5).trimStart() + '\n'; // Add newline as per spec for multi-line data
             } else if (line.startsWith(':')) {
               // Comment line, ignore
-            } // Other SSE fields (event, id, retry) can be handled here if needed
+            } else if (eventDataBuffer.length > 0) {
+              // Fallback: If we have data in the buffer and encounter a line that doesn't start with 'data:'
+              // (and isn't an empty line, which triggers dispatch), it might be a malformed SSE stream
+              // where a newline in the JSON wasn't properly prefixed with 'data:'.
+              // We'll append it to the buffer to try and recover the full message.
+              console.warn('[SSE PARSER WARNING] Found line without "data:" prefix while buffering. Appending to buffer:', line);
+              eventDataBuffer += line + '\n';
+            }
           }
 
           if (done) {
@@ -396,7 +403,7 @@ export default function App() {
             // (e.g., stream ended after data lines but before an empty line delimiter)
             if (eventDataBuffer.length > 0) {
               const jsonDataToParse = eventDataBuffer.endsWith('\n') ? eventDataBuffer.slice(0, -1) : eventDataBuffer;
-              console.log('[SSE DISPATCH FINAL EVENT]:', jsonDataToParse.substring(0,200) + "..."); // DEBUG
+              console.log('[SSE DISPATCH FINAL EVENT]:', jsonDataToParse.substring(0, 200) + "..."); // DEBUG
               processSseEventData(jsonDataToParse, aiMessageId);
               eventDataBuffer = ""; // Clear buffer
             }
@@ -411,10 +418,10 @@ export default function App() {
       console.error("Error:", error);
       // Update the AI message placeholder with an error message
       const aiMessageId = Date.now().toString() + "_ai_error";
-      setMessages(prev => [...prev, { 
-        type: "ai", 
-        content: `Sorry, there was an error processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-        id: aiMessageId 
+      setMessages(prev => [...prev, {
+        type: "ai",
+        content: `Sorry, there was an error processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        id: aiMessageId
       }]);
       setIsLoading(false);
     }
@@ -434,11 +441,11 @@ export default function App() {
   useEffect(() => {
     const checkBackend = async () => {
       setIsCheckingBackend(true);
-      
+
       // Check if backend is ready with retry logic
       const maxAttempts = 60; // 2 minutes with 2-second intervals
       let attempts = 0;
-      
+
       while (attempts < maxAttempts) {
         const isReady = await checkBackendHealth();
         if (isReady) {
@@ -446,16 +453,16 @@ export default function App() {
           setIsCheckingBackend(false);
           return;
         }
-        
+
         attempts++;
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between checks
       }
-      
+
       // If we get here, backend didn't come up in time
       setIsCheckingBackend(false);
       console.error("Backend failed to start within 2 minutes");
     };
-    
+
     checkBackend();
   }, []);
 
@@ -485,19 +492,19 @@ export default function App() {
                       bg-neutral-900/50 backdrop-blur-md 
                       p-8 rounded-2xl border border-neutral-700 
                       shadow-2xl shadow-black/60">
-        
+
         <div className="text-center space-y-6">
           <h1 className="text-4xl font-bold text-white flex items-center justify-center gap-3">
             ✨ Deep Search - ADK 🚀
           </h1>
-          
+
           <div className="flex flex-col items-center space-y-4">
             {/* Spinning animation */}
             <div className="relative">
               <div className="w-16 h-16 border-4 border-neutral-600 border-t-blue-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-purple-500 rounded-full animate-spin" style={{animationDirection: 'reverse', animationDuration: '1.5s'}}></div>
+              <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-purple-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
             </div>
-            
+
             <div className="space-y-2">
               <p className="text-xl text-neutral-300">
                 Waiting for backend to be ready...
@@ -506,12 +513,12 @@ export default function App() {
                 This may take a moment on first startup
               </p>
             </div>
-            
+
             {/* Animated dots */}
             <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-              <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
           </div>
         </div>
@@ -532,8 +539,8 @@ export default function App() {
                 <p className="text-neutral-300">
                   Unable to connect to backend services at localhost:8000
                 </p>
-                <button 
-                  onClick={() => window.location.reload()} 
+                <button
+                  onClick={() => window.location.reload()}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                 >
                   Retry

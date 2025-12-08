@@ -15,7 +15,7 @@
 import vertexai
 from vertexai import agent_engines
 from vertexai.preview.reasoning_engines import AdkApp
-from rag.agent import root_agent
+from python.agents.RAG.rag.agent_solven import root_agent
 import logging
 import os
 from dotenv import set_key

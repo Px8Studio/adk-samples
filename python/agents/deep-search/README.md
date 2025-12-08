@@ -63,7 +63,6 @@ echo "GOOGLE_API_KEY=YOUR_AI_STUDIO_API_KEY" >> app/.env
 
 #### Step 3: Install & Run
 From the `deep-search` directory, install dependencies and start the servers.
-
 ```bash
 make install && make dev
 ```
