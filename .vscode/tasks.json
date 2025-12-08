@@ -115,6 +115,41 @@
 				"showReuseMessage": true,
 				"clear": false
 			}
+		},
+		{
+			"label": "ADK Web: RAG Agent with Metadata",
+			"type": "process",
+			"command": "uv",
+			"args": [
+				"run",
+				"adk",
+				"web",
+				"--extra_plugins",
+				"rag.agent.response_metadata_plugin"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}\\python\\agents\\RAG"
+			},
+			"isBackground": true,
+			"problemMatcher": [
+				{
+					"pattern": [
+						{
+							"regexp": "^(.*)$",
+							"message": 1
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "INFO:\\s+Started server process.*",
+						"endsPattern": "INFO:\\s+Uvicorn running on .*"
+					}
+				}
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
 		}
 	]
 }

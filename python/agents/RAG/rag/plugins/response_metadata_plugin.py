@@ -65,6 +65,9 @@ class ResponseMetadataPlugin(BasePlugin):
         show_metadata: Whether to append metadata to responses.
     """
 
+    # Class-level storage for persistent daily counts
+    _daily_counts_file = Path(__file__).parent / ".daily_request_counts.json"
+
     def __init__(
         self,
         name: str = "response_metadata",
@@ -110,6 +113,51 @@ class ResponseMetadataPlugin(BasePlugin):
         except Exception as e:
             logger.error(f"Failed to load limits config: {e}")
 
+    def _load_daily_counts(self) -> dict:
+        """Load daily request counts from persistent storage."""
+        try:
+            if self._daily_counts_file.exists():
+                import json
+
+                with open(self._daily_counts_file) as f:
+                    data = json.load(f)
+                # Check if it's from today
+                today = datetime.now().strftime("%Y-%m-%d")
+                if data.get("date") == today:
+                    return data.get("counts", {})
+            return {}
+        except Exception as e:
+            logger.warning(f"Failed to load daily counts: {e}")
+            return {}
+
+    def _save_daily_counts(self, model_name: str, increment: int = 1) -> int:
+        """Save updated daily request counts. Returns the new count."""
+        try:
+            import json
+
+            today = datetime.now().strftime("%Y-%m-%d")
+            counts = self._load_daily_counts()
+
+            # If date changed, reset counts
+            if self._daily_counts_file.exists():
+                with open(self._daily_counts_file) as f:
+                    data = json.load(f)
+                    if data.get("date") != today:
+                        counts = {}
+
+            # Increment count for this model
+            current = counts.get(model_name, 0)
+            counts[model_name] = current + increment
+
+            # Save
+            with open(self._daily_counts_file, "w") as f:
+                json.dump({"date": today, "counts": counts}, f)
+
+            return counts[model_name]
+        except Exception as e:
+            logger.warning(f"Failed to save daily counts: {e}")
+            return 0
+
     def _reset_counters(self) -> None:
         """Reset all tracking counters for a new invocation."""
         self._llm_calls = 0
@@ -124,18 +172,30 @@ class ResponseMetadataPlugin(BasePlugin):
     def _get_model_limits(self, model_name: str) -> dict:
         """Get rate limits for a specific model."""
         models = self._limits.get("models", {})
-        return models.get(model_name, {})
+        # Try exact match first, then try without version suffix
+        if model_name in models:
+            return models.get(model_name, {})
+        # Try matching base model name (e.g., "gemini-2.5-pro" from "gemini-2.5-pro-001")
+        for key in models:
+            if model_name.startswith(key) or key.startswith(model_name.split("-")[0]):
+                return models[key]
+        return {}
 
     def _format_rpd_remaining(self, model_name: str) -> str:
-        """Format remaining requests per day (approximate)."""
+        """Format remaining requests per day based on actual usage."""
         model_info = self._get_model_limits(model_name)
         limits = model_info.get("limits", {})
         rpd = limits.get("rpd", -1)
 
         if rpd == -1:
             return "Unlimited"
-        else:
-            return f"{rpd:,}/day"
+
+        # Get today's usage count for this model
+        daily_counts = self._load_daily_counts()
+        used_today = daily_counts.get(model_name, 0)
+        remaining = max(0, rpd - used_today)
+
+        return f"{remaining:,} / {rpd:,}"
 
     def _estimate_cost(self, model_name: str) -> str:
         """Estimate cost based on token usage."""
@@ -224,6 +284,8 @@ class ResponseMetadataPlugin(BasePlugin):
         # Track model used
         if llm_response.model_version:
             self._model_used = llm_response.model_version
+            # Increment daily request count for this model (for RPD tracking)
+            self._save_daily_counts(llm_response.model_version)
 
         # Track token usage
         if llm_response.usage_metadata:

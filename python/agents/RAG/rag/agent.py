@@ -35,30 +35,34 @@ from .plugins import ResponseMetadataPlugin
 
 load_dotenv()
 
-# --- Plugin Configuration ---
-# Path to rate limits config (optional, enhances metadata display)
-LIMITS_CONFIG_PATH = os.environ.get(
-    "LIMITS_CONFIG_PATH",
-    str(
-        Path(__file__).parent.parent.parent.parent.parent
-        / "solven"
-        / "config"
-        / "google_paid_tier_limits.yaml"
-    ),
-)
-
-# Initialize the metadata plugin
-response_metadata_plugin = ResponseMetadataPlugin(
-    limits_config_path=LIMITS_CONFIG_PATH
-    if Path(LIMITS_CONFIG_PATH).exists()
-    else None,
-    show_metadata=os.environ.get("SHOW_RESPONSE_METADATA", "true").lower() == "true",
-)
-
-# Configure logging
+# Configure logging early
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# --- Plugin Configuration ---
+# Path to rate limits config (optional, enhances metadata display)
+# Look for config in the solven workspace (sibling to adk-samples)
+_PROJECTS_DIR = Path(
+    __file__
+).parent.parent.parent.parent.parent.parent  # Up to _Projects
+LIMITS_CONFIG_PATH = os.environ.get(
+    "LIMITS_CONFIG_PATH",
+    str(_PROJECTS_DIR / "solven" / "config" / "google_paid_tier_limits.yaml"),
+)
+
+# Verify the path exists and log for debugging
+_limits_path = Path(LIMITS_CONFIG_PATH)
+if _limits_path.exists():
+    logger.info(f"Found rate limits config at: {LIMITS_CONFIG_PATH}")
+else:
+    logger.warning(f"Rate limits config not found at: {LIMITS_CONFIG_PATH}")
+    logger.info(f"Searched in _Projects dir: {_PROJECTS_DIR}")
+
+# Initialize the metadata plugin
+response_metadata_plugin = ResponseMetadataPlugin(
+    limits_config_path=LIMITS_CONFIG_PATH if _limits_path.exists() else None,
+    show_metadata=os.environ.get("SHOW_RESPONSE_METADATA", "true").lower() == "true",
+)
 
 # --- Configuration ---
 # Model must support function calling. Gemma models do NOT.
@@ -71,23 +75,28 @@ logger.info(f"RAG Agent using model: {MODEL_NAME}")
 # --- Agent Instruction ---
 INSTRUCTION = """
 You are a helpful AI assistant with access to a local document knowledge base.
-Your role is to provide accurate answers based ONLY on the documents you can retrieve.
+Your role is to provide accurate answers based on the documents you can retrieve.
 
-**Your Workflow:**
-1.  **Understand the Question:** Analyze what the user is asking.
-2.  **Search for Information:** Use the `retrieve_chroma_documentation` tool to find relevant content.
-3.  **Synthesize the Answer:** Combine the retrieved information into a clear response.
-4.  **Cite Your Sources:** Include document names and relevant details in your answer.
+**Handling Different Types of Questions:**
+
+1. **Meta-questions about your capabilities** (e.g., "what can you do?", "who are you?", "hello"):
+   - You may answer these directly without using tools.
+   - Briefly describe that you can search a document knowledge base, list available sources, and answer questions about the documents.
+
+2. **Document-related questions** (anything about specific topics, facts, or information):
+   - ALWAYS use the `retrieve_chroma_documentation` tool first.
+   - Only answer based on retrieved documents, never from general knowledge.
+   - Cite your sources.
 
 **Tools Available:**
--   `retrieve_chroma_documentation(query)`: Search the knowledge base for relevant documents.
--   `list_chroma_sources()`: List all available documents in the knowledge base.
--   `get_chroma_file_metadata(file_name)`: Get details about a specific document.
+- `retrieve_chroma_documentation(query)`: Search the knowledge base for relevant documents.
+- `list_chroma_sources()`: List all available documents in the knowledge base.
+- `get_chroma_file_metadata(file_name)`: Get details about a specific document.
 
 **Important Rules:**
--   NEVER answer from your own knowledge. Only use retrieved documents.
--   If no relevant information is found, say so clearly.
--   When listing sources, show the COMPLETE list from the tool, don't summarize.
+- For content questions, NEVER answer from your own knowledge. Only use retrieved documents.
+- If no relevant information is found, say so clearly.
+- When listing sources, show the COMPLETE list from the tool, don't summarize.
 """
 
 
