@@ -95,6 +95,9 @@ class ResponseMetadataPlugin(BasePlugin):
         self._start_time: Optional[datetime] = None
         self._model_used: Optional[str] = None
         self._tool_names: list[str] = []
+        self._metadata_appended: bool = (
+            False  # Track if metadata already added this invocation
+        )
 
         # Load rate limits if config provided
         if limits_config_path:
@@ -168,6 +171,7 @@ class ResponseMetadataPlugin(BasePlugin):
         self._start_time = datetime.now()
         self._model_used = None
         self._tool_names = []
+        self._metadata_appended = False  # Reset for new invocation
 
     def _get_model_limits(self, model_name: str) -> dict:
         """Get rate limits for a specific model."""
@@ -322,6 +326,10 @@ class ResponseMetadataPlugin(BasePlugin):
         if not self._show_metadata:
             return None
 
+        # Skip if we already appended metadata in this invocation
+        if self._metadata_appended:
+            return None
+
         # Only append to the final response event with content
         if event.is_final_response() and event.content and event.content.parts:
             metadata_block = self._format_metadata_block()
@@ -330,6 +338,7 @@ class ResponseMetadataPlugin(BasePlugin):
             for part in reversed(event.content.parts):
                 if part.text is not None:
                     part.text += metadata_block
+                    self._metadata_appended = True  # Mark as done for this invocation
                     logger.debug(f"[{self.name}] Appended metadata to final response")
                     break
 

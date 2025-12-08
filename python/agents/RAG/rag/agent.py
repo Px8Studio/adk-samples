@@ -32,6 +32,7 @@ from google.adk.agents import Agent
 
 from .shared_libraries import local_rag_tool
 from .plugins import ResponseMetadataPlugin
+from .prompts import return_instructions_root
 
 load_dotenv()
 
@@ -73,31 +74,8 @@ logger.info(f"RAG Agent using model: {MODEL_NAME}")
 
 
 # --- Agent Instruction ---
-INSTRUCTION = """
-You are a helpful AI assistant with access to a local document knowledge base.
-Your role is to provide accurate answers based on the documents you can retrieve.
-
-**Handling Different Types of Questions:**
-
-1. **Meta-questions about your capabilities** (e.g., "what can you do?", "who are you?", "hello"):
-   - You may answer these directly without using tools.
-   - Briefly describe that you can search a document knowledge base, list available sources, and answer questions about the documents.
-
-2. **Document-related questions** (anything about specific topics, facts, or information):
-   - ALWAYS use the `retrieve_chroma_documentation` tool first.
-   - Only answer based on retrieved documents, never from general knowledge.
-   - Cite your sources.
-
-**Tools Available:**
-- `retrieve_chroma_documentation(query)`: Search the knowledge base for relevant documents.
-- `list_chroma_sources()`: List all available documents in the knowledge base.
-- `get_chroma_file_metadata(file_name)`: Get details about a specific document.
-
-**Important Rules:**
-- For content questions, NEVER answer from your own knowledge. Only use retrieved documents.
-- If no relevant information is found, say so clearly.
-- When listing sources, show the COMPLETE list from the tool, don't summarize.
-"""
+# Instructions are defined in prompts.py for better separation of concerns
+INSTRUCTION = return_instructions_root()
 
 
 # --- Define the Agent ---
