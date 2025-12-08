@@ -17,17 +17,43 @@ RAG Agent - Local Mode (ChromaDB + Google AI API)
 
 This agent uses a local ChromaDB vector store for document retrieval.
 It requires a Gemini model that supports function calling.
+
+Features:
+- Local ChromaDB for document storage and retrieval
+- Response metadata tracking (tokens, costs, timing)
 """
 
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 
 from .shared_libraries import local_rag_tool
+from .plugins import ResponseMetadataPlugin
 
 load_dotenv()
+
+# --- Plugin Configuration ---
+# Path to rate limits config (optional, enhances metadata display)
+LIMITS_CONFIG_PATH = os.environ.get(
+    "LIMITS_CONFIG_PATH",
+    str(
+        Path(__file__).parent.parent.parent.parent.parent
+        / "solven"
+        / "config"
+        / "google_paid_tier_limits.yaml"
+    ),
+)
+
+# Initialize the metadata plugin
+response_metadata_plugin = ResponseMetadataPlugin(
+    limits_config_path=LIMITS_CONFIG_PATH
+    if Path(LIMITS_CONFIG_PATH).exists()
+    else None,
+    show_metadata=os.environ.get("SHOW_RESPONSE_METADATA", "true").lower() == "true",
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -77,4 +103,14 @@ root_agent = Agent(
     ],
 )
 
+# Set the model name in the plugin for accurate cost estimation
+# (The plugin also gets this from llm_response.model_version when available)
+response_metadata_plugin._model_used = MODEL_NAME
+
 logger.info("RAG Agent initialized with local ChromaDB tools.")
+logger.info(
+    f"Response metadata plugin enabled: {response_metadata_plugin._show_metadata}"
+)
+
+# Export for `--extra_plugins` CLI option:
+# Use: uv run adk web --extra_plugins rag.agent.response_metadata_plugin
