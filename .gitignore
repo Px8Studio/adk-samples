@@ -222,3 +222,5 @@ bin/
 # ADK
 .adk/
 # .vscode/
+
+*key*
