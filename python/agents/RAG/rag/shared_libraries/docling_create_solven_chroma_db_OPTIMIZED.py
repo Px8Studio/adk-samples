@@ -619,7 +619,7 @@ def main():
     logger.info("Chunking Documents with HybridChunker")
     logger.info("-" * 80)
     
-    documents = chunk_documents_with_hybrid_chunker(docling_documents)
+    documents = chunk_documents_with_hybrid_chunker(docling_documents, tokenizer_model="thenlper/gte-large")
     
     if not documents:
         logger.error("No chunks created. Exiting.")
