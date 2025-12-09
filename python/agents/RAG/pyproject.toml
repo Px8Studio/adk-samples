@@ -22,6 +22,8 @@ dependencies = [
     "nest-asyncio>=1.6.0",
     "llama-parse>=0.6.54",
     "google-generativeai>=0.8.5",
+    "uv>=0.9.16",
+    "llama-index-embeddings-openai>=0.5.1",
 ]
 
 requires-python = ">=3.10,<3.13"
