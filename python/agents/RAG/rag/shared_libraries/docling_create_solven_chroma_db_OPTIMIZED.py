@@ -35,6 +35,7 @@ from typing import Any, Dict, List, Optional
 import argparse
 from pathlib import Path
 import time
+import json  # Add this import at the top if not present
 
 # Apply nest_asyncio to allow async loops in scripts
 nest_asyncio.apply()
@@ -337,8 +338,6 @@ def chunk_documents_with_hybrid_chunker(
             
             # Convert to LlamaIndex documents with rich metadata
             for idx, chunk in enumerate(chunks):
-                # Extract comprehensive metadata for RAG optimization
-                # Phase 1: Core metadata (always included)
                 metadata = {
                     "file_path": str(file_path),
                     "file_name": file_path.name,
@@ -348,20 +347,28 @@ def chunk_documents_with_hybrid_chunker(
                 
                 # Phase 2: Hierarchical context (for document structure awareness)
                 if chunk.meta.headings:
-                    metadata["headings"] = chunk.meta.headings
-                    logger.debug(f"  Chunk {idx}: Headings: {chunk.meta.headings}")
+                    # Ensure headings is a flat string
+                    try:
+                        metadata["headings"] = " | ".join(str(h) for h in chunk.meta.headings)
+                    except Exception:
+                        metadata["headings"] = str(chunk.meta.headings)
+                    logger.debug(f"  Chunk {idx}: Headings: {metadata['headings']}")
                 
                 if chunk.meta.captions:
-                    metadata["captions"] = chunk.meta.captions
-                    logger.debug(f"  Chunk {idx}: Captions: {chunk.meta.captions}")
+                    # Ensure captions is a flat string
+                    try:
+                        metadata["captions"] = " | ".join(str(c) for c in chunk.meta.captions)
+                    except Exception:
+                        metadata["captions"] = str(chunk.meta.captions)
+                    logger.debug(f"  Chunk {idx}: Captions: {metadata['captions']}")
                 
                 # Phase 3: Content type indicators (enables content-aware filtering)
                 if chunk.meta.doc_items:
                     item_labels = [item.label.value for item in chunk.meta.doc_items]
-                    metadata["doc_item_types"] = item_labels
+                    # Store as a flat string
+                    metadata["doc_item_types"] = " | ".join(item_labels)
                     logger.debug(f"  Chunk {idx}: Item types: {item_labels}")
                     
-                    # Content indicators for advanced filtering
                     metadata["has_tables"] = any(label == "table" for label in item_labels)
                     metadata["has_code"] = any(label == "code" for label in item_labels)
                     metadata["has_formulas"] = any(label == "formula" for label in item_labels)
@@ -370,7 +377,6 @@ def chunk_documents_with_hybrid_chunker(
                 # Phase 4: Text metrics (for quality indicators)
                 metadata["text_length_chars"] = len(chunk.text)
                 
-                # Try to count tokens for the contextualized version
                 try:
                     contextualized_text = chunker.contextualize(chunk=chunk)
                     metadata["text_with_context_length_chars"] = len(contextualized_text)
