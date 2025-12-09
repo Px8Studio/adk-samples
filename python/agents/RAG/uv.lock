@@ -1840,6 +1840,9 @@ wheels = [
 ]
 
 [package.optional-dependencies]
+hf-xet = [
+    { name = "hf-xet" },
+]
 inference = [
     { name = "aiohttp" },
 ]
@@ -4289,6 +4292,7 @@ dependencies = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform", extra = ["adk", "agent-engines"] },
     { name = "google-generativeai" },
+    { name = "huggingface-hub", extra = ["hf-xet"] },
     { name = "llama-index" },
     { name = "llama-index-embeddings-huggingface" },
     { name = "llama-index-embeddings-openai" },
@@ -4296,8 +4300,10 @@ dependencies = [
     { name = "llama-parse" },
     { name = "nest-asyncio" },
     { name = "pydantic-settings" },
+    { name = "rapidocr-onnxruntime" },
     { name = "requests" },
     { name = "tabulate" },
+    { name = "transformers" },
     { name = "uv" },
 ]
 
@@ -4329,6 +4335,7 @@ requires-dist = [
     { name = "google-auth", specifier = ">=2.36.0" },
     { name = "google-cloud-aiplatform", extras = ["adk", "agent-engines"], specifier = ">=1.108.0" },
     { name = "google-generativeai", specifier = ">=0.8.5" },
+    { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=0.36.0" },
     { name = "llama-index", specifier = ">=0.12" },
     { name = "llama-index-embeddings-huggingface", specifier = ">=0.6.1" },
     { name = "llama-index-embeddings-openai", specifier = ">=0.5.1" },
@@ -4337,9 +4344,11 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'lint'", specifier = ">=1.15.0" },
     { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
+    { name = "rapidocr-onnxruntime", specifier = ">=1.4.4" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "ruff", marker = "extra == 'lint'", specifier = ">=0.4.6" },
     { name = "tabulate", specifier = ">=0.9.0" },
+    { name = "transformers", specifier = ">=4.57.3" },
     { name = "types-pyyaml", marker = "extra == 'lint'", specifier = ">=6.0.12.20240917" },
     { name = "types-requests", marker = "extra == 'lint'", specifier = ">=2.32.0.20240914" },
     { name = "uv", specifier = ">=0.9.16" },
@@ -4376,6 +4385,26 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cf/a8/401c97c8fa6c7f964ace3bf11d8fad4902f07f969a0f4f5d7518f46ebeef/rapidocr-3.4.3-py3-none-any.whl", hash = "sha256:a007bf196c41e2c7321dfa570e8cef06cd7fb41d7a283b91b7e4b7b08623ed27", size = 15060208, upload-time = "2025-12-09T14:45:34.189Z" },
+]
+
+[[package]]
+name = "rapidocr-onnxruntime"
+version = "1.4.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "onnxruntime" },
+    { name = "opencv-python" },
+    { name = "pillow" },
+    { name = "pyclipper" },
+    { name = "pyyaml" },
+    { name = "shapely" },
+    { name = "six" },
+    { name = "tqdm" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/12/1e5497183bdbe782dbb91bad1d0d2297dba4d2831b2652657f7517bfc6df/rapidocr_onnxruntime-1.4.4-py3-none-any.whl", hash = "sha256:971d7d5f223a7a808662229df1ef69893809d8457d834e6373d3854bc1782cbf", size = 14915192, upload-time = "2025-01-17T01:48:25.104Z" },
 ]
 
 [[package]]
