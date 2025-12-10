@@ -66,11 +66,31 @@ response_metadata_plugin = ResponseMetadataPlugin(
 )
 
 # --- Configuration ---
-# Model must support function calling. Gemma models do NOT.
-# Recommended: gemini-2.0-flash (1500 RPD free tier), gemini-2.5-flash (20 RPD)
-MODEL_NAME = os.environ.get("MODEL_NAME", "gemini-2.0-flash")
+# Accept an ordered fallback list via ADK_MODEL_LIST. We still hand the Agent
+# a single model; fallback sequencing (if desired) must be handled by the caller
+# or by retry logic outside this file.
+def _resolve_model_name() -> str:
+    fallback_list = os.environ.get("ADK_MODEL_LIST", "")
+    if fallback_list:
+        models = [m.strip() for m in fallback_list.split(",") if m.strip()]
+        if models:
+            logger.info(
+                "RAG Agent using model from ADK_MODEL_LIST (priority first): %s",
+                models[0],
+            )
+            return models[0]
 
-logger.info(f"RAG Agent using model: {MODEL_NAME}")
+    env_model = os.environ.get("MODEL_NAME")
+    if env_model:
+        logger.info("RAG Agent using model from MODEL_NAME: %s", env_model)
+        return env_model
+
+    default_model = "gemini-2.0-flash"
+    logger.info("RAG Agent using default model: %s", default_model)
+    return default_model
+
+
+MODEL_NAME = _resolve_model_name()
 
 
 # --- Agent Instruction ---
