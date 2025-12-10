@@ -372,7 +372,8 @@ def chunk_documents_with_hybrid_chunker(
     # Initialize HybridChunker
     chunker = HybridChunker(
         tokenizer=tokenizer,
-        merge_peers=True  # Merge small adjacent chunks with same context
+        merge_peers=True,
+        max_tokens=4096,  # Double the context window for large tables
     )
     logger.info("✓ HybridChunker initialized")
     logger.info("="*80)
