@@ -274,6 +274,59 @@ class OptimizedDoclingProcessor:
             return None
 
 
+def extract_pdf_properties(file_path: Path) -> dict:
+    """
+    Extract PDF document properties (metadata, author, creation date, etc).
+    
+    Args:
+        file_path: Path to the PDF file
+        
+    Returns:
+        Dictionary with PDF properties
+    """
+    try:
+        import PyPDF2
+        
+        properties = {
+            "file_size_bytes": file_path.stat().st_size,
+            "file_modified": str(file_path.stat().st_mtime),
+        }
+        
+        with open(file_path, 'rb') as f:
+            pdf_reader = PyPDF2.PdfReader(f)
+            
+            # Extract document info
+            if pdf_reader.metadata:
+                metadata = pdf_reader.metadata
+                if metadata.get('/Title'):
+                    properties["pdf_title"] = str(metadata.get('/Title'))
+                if metadata.get('/Author'):
+                    properties["pdf_author"] = str(metadata.get('/Author'))
+                if metadata.get('/Subject'):
+                    properties["pdf_subject"] = str(metadata.get('/Subject'))
+                if metadata.get('/Creator'):
+                    properties["pdf_creator"] = str(metadata.get('/Creator'))
+                if metadata.get('/Producer'):
+                    properties["pdf_producer"] = str(metadata.get('/Producer'))
+                if metadata.get('/CreationDate'):
+                    properties["pdf_creation_date"] = str(metadata.get('/CreationDate'))
+                if metadata.get('/ModDate'):
+                    properties["pdf_mod_date"] = str(metadata.get('/ModDate'))
+            
+            # Page count
+            properties["total_pages"] = len(pdf_reader.pages)
+            
+        logger.info(f"  Extracted PDF properties: {', '.join(properties.keys())}")
+        return properties
+        
+    except Exception as e:
+        logger.warning(f"Could not extract PDF properties from {file_path.name}: {e}")
+        return {
+            "file_size_bytes": file_path.stat().st_size,
+            "total_pages": 0,
+        }
+
+
 def chunk_documents_with_hybrid_chunker(
     docling_docs: List[tuple[Path, Any]], 
     tokenizer_model: str = "thenlper/gte-large-en"
@@ -326,6 +379,9 @@ def chunk_documents_with_hybrid_chunker(
         logger.info(f"Chunking document: {file_path.name}")
         doc_chunk_start = time.time()
         
+        # Extract PDF properties once per file
+        pdf_properties = extract_pdf_properties(file_path)
+        
         try:
             # Chunk the document
             chunks = list(chunker.chunk(docling_doc))
@@ -345,34 +401,91 @@ def chunk_documents_with_hybrid_chunker(
                     "total_chunks": len(chunks),
                 }
                 
+                # Add file-level PDF properties
+                metadata.update(pdf_properties)
+                
+                # Extract page ranges from chunk
+                # HybridChunker provides page_ranges in chunk.meta
+                if hasattr(chunk.meta, 'page_ranges') and chunk.meta.page_ranges:
+                    try:
+                        page_ranges = chunk.meta.page_ranges
+                        if page_ranges:
+                            # Format: [(start_page, end_page), ...]
+                            formatted_pages = [f"{p[0]}-{p[1]}" if isinstance(p, (list, tuple)) else str(p) 
+                                             for p in page_ranges]
+                            metadata["page_ranges"] = ", ".join(formatted_pages)
+                            logger.info(f"  Chunk {idx}: Pages: {metadata['page_ranges']}")
+                    except Exception as e:
+                        logger.debug(f"  Chunk {idx}: Could not extract page_ranges: {e}")
+                
                 # Phase 2: Hierarchical context (for document structure awareness)
                 if chunk.meta.headings:
                     # Ensure headings is a flat string
                     try:
                         metadata["headings"] = " | ".join(str(h) for h in chunk.meta.headings)
+                        logger.info(f"  Chunk {idx}: Headings: {metadata['headings']}")
                     except Exception:
                         metadata["headings"] = str(chunk.meta.headings)
-                    logger.debug(f"  Chunk {idx}: Headings: {metadata['headings']}")
                 
                 if chunk.meta.captions:
                     # Ensure captions is a flat string
                     try:
                         metadata["captions"] = " | ".join(str(c) for c in chunk.meta.captions)
+                        logger.info(f"  Chunk {idx}: Captions: {metadata['captions']}")
                     except Exception:
                         metadata["captions"] = str(chunk.meta.captions)
-                    logger.debug(f"  Chunk {idx}: Captions: {metadata['captions']}")
                 
                 # Phase 3: Content type indicators (enables content-aware filtering)
+                # CRITICAL: Check BOTH doc_items labels AND actual text content
+                content_types = set()
+                
                 if chunk.meta.doc_items:
                     item_labels = [item.label.value for item in chunk.meta.doc_items]
-                    # Store as a flat string
                     metadata["doc_item_types"] = " | ".join(item_labels)
-                    logger.debug(f"  Chunk {idx}: Item types: {item_labels}")
                     
-                    metadata["has_tables"] = any(label == "table" for label in item_labels)
-                    metadata["has_code"] = any(label == "code" for label in item_labels)
-                    metadata["has_formulas"] = any(label == "formula" for label in item_labels)
-                    metadata["has_lists"] = any(label in ["ordered_list", "unordered_list"] for label in item_labels)
+                    # Add content type indicators based on doc_items
+                    if any(label == "table" for label in item_labels):
+                        content_types.add("table")
+                    if any(label == "code" for label in item_labels):
+                        content_types.add("code")
+                    if any(label == "formula" for label in item_labels):
+                        content_types.add("formula")
+                    if any(label in ["ordered_list", "unordered_list"] for label in item_labels):
+                        content_types.add("list")
+                    
+                    logger.info(f"  Chunk {idx}: Item types: {item_labels}")
+                
+                # ALSO check actual text content for content type patterns
+                text_lower = chunk.text.lower()
+                
+                # Detect table-like content (indicators: columns, rows, cells, etc)
+                table_indicators = ["column", "row", "cell", "table", "header", "entity", "field"]
+                if any(indicator in text_lower for indicator in table_indicators):
+                    if text_lower.count("|") > 5 or text_lower.count("  ") > 20:  # Table-like formatting
+                        content_types.add("table")
+                
+                # Detect formula/math content
+                formula_indicators = ["formula", "equation", "calculation", "formula", "\\(", "\\[", "="]
+                if any(indicator in text_lower for indicator in formula_indicators):
+                    content_types.add("formula")
+                
+                # Detect code-like content
+                code_indicators = ["function", "class", "def ", "if ", "return", "variable", "syntax"]
+                if any(indicator in text_lower for indicator in code_indicators):
+                    content_types.add("code")
+                
+                # Detect lists
+                if chunk.text.count("\n•") > 2 or chunk.text.count("\n-") > 2 or chunk.text.count("\n*") > 2:
+                    content_types.add("list")
+                
+                # Store boolean flags for each content type
+                metadata["has_tables"] = "table" in content_types
+                metadata["has_code"] = "code" in content_types
+                metadata["has_formulas"] = "formula" in content_types
+                metadata["has_lists"] = "list" in content_types
+                
+                if content_types:
+                    logger.info(f"  Chunk {idx}: Detected content types: {', '.join(content_types)}")
                 
                 # Phase 4: Text metrics (for quality indicators)
                 metadata["text_length_chars"] = len(chunk.text)
@@ -380,10 +493,6 @@ def chunk_documents_with_hybrid_chunker(
                 try:
                     contextualized_text = chunker.contextualize(chunk=chunk)
                     metadata["text_with_context_length_chars"] = len(contextualized_text)
-                    logger.debug(
-                        f"  Chunk {idx}: Raw={len(chunk.text)} chars, "
-                        f"Contextualized={len(contextualized_text)} chars"
-                    )
                 except Exception as e:
                     logger.debug(f"  Chunk {idx}: Could not contextualize text: {e}")
                 
