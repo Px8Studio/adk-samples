@@ -446,21 +446,17 @@ def chunk_documents_with_hybrid_chunker(
                     except Exception:
                         metadata["headings"] = str(chunk.meta.headings)
                 
-                if chunk.meta.captions:
-                    # Ensure captions is a flat string
-                    try:
-                        metadata["captions"] = " | ".join(str(c) for c in chunk.meta.captions)
-                        logger.info(f"  Chunk {idx}: Captions: {metadata['captions']}")
-                    except Exception:
-                        metadata["captions"] = str(chunk.meta.captions)
-                
                 # Phase 3: Content type indicators (enables content-aware filtering)
                 # CRITICAL: Check BOTH doc_items labels AND actual text content
                 content_types = set()
                 
                 if chunk.meta.doc_items:
                     item_labels = [item.label.value for item in chunk.meta.doc_items]
-                    metadata["doc_item_types"] = " | ".join(item_labels)
+                    # Store COUNT and UNIQUE TYPES instead of all individual items
+                    # This prevents metadata bloat for chunks with 800+ items
+                    unique_types = sorted(set(item_labels))
+                    metadata["doc_item_count"] = len(item_labels)
+                    metadata["doc_item_unique_types"] = " | ".join(unique_types)
                     
                     # Add content type indicators based on doc_items
                     if any(label == "table" for label in item_labels):
@@ -472,7 +468,7 @@ def chunk_documents_with_hybrid_chunker(
                     if any(label in ["ordered_list", "unordered_list"] for label in item_labels):
                         content_types.add("list")
                     
-                    logger.info(f"  Chunk {idx}: Item types: {item_labels}")
+                    logger.info(f"  Chunk {idx}: Item count: {len(item_labels)}, Unique types: {unique_types}")
                 
                 # ALSO check actual text content for content type patterns
                 text_lower = chunk.text.lower()
