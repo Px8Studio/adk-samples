@@ -775,6 +775,8 @@ def main():
         storage_context=storage_context,
         embed_model=embed_model,
         show_progress=True,
+        # chunk_size=2048,  # Increase this value
+        chunk_size=4096,  # Increase this value
     )
     
     index_elapsed = time.time() - index_start_time
