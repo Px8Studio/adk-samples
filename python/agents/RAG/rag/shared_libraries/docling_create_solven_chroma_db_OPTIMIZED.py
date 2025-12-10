@@ -316,9 +316,15 @@ def extract_pdf_properties(file_path: Path) -> dict:
             # Page count
             properties["total_pages"] = len(pdf_reader.pages)
             
-        logger.info(f"  Extracted PDF properties: {', '.join(properties.keys())}")
+        logger.debug(f"  Extracted PDF properties: {', '.join(properties.keys())}")
         return properties
         
+    except ImportError:
+        logger.warning(f"PyPDF2 not installed. Install with: uv add PyPDF2")
+        return {
+            "file_size_bytes": file_path.stat().st_size,
+            "total_pages": 0,
+        }
     except Exception as e:
         logger.warning(f"Could not extract PDF properties from {file_path.name}: {e}")
         return {
@@ -406,17 +412,30 @@ def chunk_documents_with_hybrid_chunker(
                 
                 # Extract page ranges from chunk
                 # HybridChunker provides page_ranges in chunk.meta
+                page_ranges_extracted = False
                 if hasattr(chunk.meta, 'page_ranges') and chunk.meta.page_ranges:
                     try:
                         page_ranges = chunk.meta.page_ranges
                         if page_ranges:
                             # Format: [(start_page, end_page), ...]
-                            formatted_pages = [f"{p[0]}-{p[1]}" if isinstance(p, (list, tuple)) else str(p) 
-                                             for p in page_ranges]
-                            metadata["page_ranges"] = ", ".join(formatted_pages)
-                            logger.info(f"  Chunk {idx}: Pages: {metadata['page_ranges']}")
+                            formatted_pages = []
+                            for p in page_ranges:
+                                if isinstance(p, (list, tuple)) and len(p) >= 2:
+                                    formatted_pages.append(f"{p[0]}-{p[1]}")
+                                else:
+                                    formatted_pages.append(str(p))
+                            if formatted_pages:
+                                metadata["page_ranges"] = ", ".join(formatted_pages)
+                                logger.info(f"  Chunk {idx}: Pages: {metadata['page_ranges']}")
+                                page_ranges_extracted = True
                     except Exception as e:
                         logger.debug(f"  Chunk {idx}: Could not extract page_ranges: {e}")
+                
+                # If page ranges not extracted and we have page count, add fallback
+                if not page_ranges_extracted and "total_pages" in metadata and metadata["total_pages"] > 0:
+                    # Fallback: estimate pages - chunks at position idx likely around page (idx/2 + 1)
+                    estimated_page = min(idx // 2 + 1, metadata["total_pages"])
+                    metadata["page_ranges"] = str(estimated_page)
                 
                 # Phase 2: Hierarchical context (for document structure awareness)
                 if chunk.meta.headings:
