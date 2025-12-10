@@ -87,6 +87,7 @@ root_agent = Agent(
         local_rag_tool.retrieve_chroma_documentation,
         local_rag_tool.list_chroma_sources,
         local_rag_tool.get_chroma_file_metadata,
+        local_rag_tool.get_corpus_content_summary,
     ],
 )
 
