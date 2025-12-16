@@ -1,8 +1,7 @@
 """Orchestrator for the benchmark agent."""
 
-import logging
-import difflib
 import json
+import logging
 import os
 import posixpath
 import shlex

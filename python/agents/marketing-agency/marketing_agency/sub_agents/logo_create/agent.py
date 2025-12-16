@@ -50,8 +50,7 @@ logo_create_agent = Agent(
     model=MODEL,
     name="logo_create_agent",
     description=(
-        "An agent that generates images and answers "
-        "questions about the images."
+        "An agent that generates images and answers " "questions about the images."
     ),
     instruction=prompt.LOGO_CREATE_PROMPT,
     output_key="logo_create_output",

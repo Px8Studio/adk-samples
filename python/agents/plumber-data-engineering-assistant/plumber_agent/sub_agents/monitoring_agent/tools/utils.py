@@ -50,7 +50,9 @@ def get_cpu_utilization(project_id: str) -> dict[str, Any]:
             end_time=datetime.now(timezone.utc),
             start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
         )
-        metric_filter = 'metric.type = "compute.googleapis.com/instance/cpu/utilization"'
+        metric_filter = (
+            'metric.type = "compute.googleapis.com/instance/cpu/utilization"'
+        )
 
         # The Aggregation constructor accepts timedelta objects directly
         aggregation = monitoring_v3.Aggregation(
@@ -82,7 +84,9 @@ def get_cpu_utilization(project_id: str) -> dict[str, Any]:
                 # Convert the returned protobuf Timestamp to a Python datetime
                 # for cleaner, more consistent formatting in the report.
                 timestamp_dt = point.interval.end_time
-                cpu_data_report.append(f"    Timestamp: {timestamp_dt}, Value: {value:.2f}%")
+                cpu_data_report.append(
+                    f"    Timestamp: {timestamp_dt}, Value: {value:.2f}%"
+                )
 
         if not cpu_data_report:
             message = "No CPU utilization data found for the specified project and time range."
@@ -197,7 +201,9 @@ def get_latest_resource_based_logs(
         "order_by": "timestamp desc",
         "page_size": 5,
         "max_results": _limit,
-        "filter_": (f'timestamp >= "{(datetime.now() - timedelta(days=90)).isoformat()}Z"'),
+        "filter_": (
+            f'timestamp >= "{(datetime.now() - timedelta(days=90)).isoformat()}Z"'
+        ),
     }
 
     full_filter = f"{resource}"

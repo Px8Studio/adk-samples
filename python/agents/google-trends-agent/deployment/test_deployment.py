@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
+import asyncio
+import json
 import os
+import sys
+
+import vertexai
+from dotenv import load_dotenv
+from google.adk.sessions import VertexAiSessionService
+from vertexai import agent_engines
 
 # Add the project root to sys.path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-import os
-import vertexai
-from vertexai import agent_engines
-from google.adk.sessions import VertexAiSessionService
-from dotenv import load_dotenv
-import json
-import asyncio
 
 
 def pretty_print_event(event):
@@ -76,7 +75,7 @@ session_service = VertexAiSessionService(
     location=os.getenv("GOOGLE_CLOUD_LOCATION"),
 )
 AGENT_ENGINE_ID = os.getenv("AGENT_ENGINE_ID")
-print('AGENT_ENGINE_ID', AGENT_ENGINE_ID)
+print("AGENT_ENGINE_ID", AGENT_ENGINE_ID)
 
 session = asyncio.run(
     session_service.create_session(
@@ -98,4 +97,8 @@ while True:
     ):
         pretty_print_event(event)
 
-asyncio.run(session_service.delete_session(user_id="123", session_id=session.id, app_name=AGENT_ENGINE_ID))
+asyncio.run(
+    session_service.delete_session(
+        user_id="123", session_id=session.id, app_name=AGENT_ENGINE_ID
+    )
+)

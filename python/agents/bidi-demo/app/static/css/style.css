@@ -52,6 +52,40 @@ h1 {
   margin-top: 0.25rem;
 }
 
+/* Header Options (Proactivity, Affective Dialog checkboxes) */
+.header-options {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.header-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.header-checkbox:hover {
+  opacity: 1;
+}
+
+.header-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #ffffff;
+}
+
+.header-checkbox span {
+  white-space: nowrap;
+}
+
 .connection-status {
   position: absolute;
   top: 1.5rem;
@@ -393,6 +427,33 @@ button {
   color: #cccccc;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.console-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.console-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: #999999;
+  cursor: pointer;
+  user-select: none;
+}
+
+.console-checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #4285f4;
+}
+
+.console-checkbox span {
+  white-space: nowrap;
 }
 
 .console-clear-btn {

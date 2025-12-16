@@ -249,7 +249,9 @@ def get_dataproc_normal_job_logs_with_id(
         result = subprocess.run(
             command_str, capture_output=True, text=True, check=False, shell=True
         )
-        logger.info("Result for '%s' command: returncode=%s", filter_key, result.returncode)
+        logger.info(
+            "Result for '%s' command: returncode=%s", filter_key, result.returncode
+        )
         return result
     except FileNotFoundError as e:
         logger.warning(
@@ -266,7 +268,9 @@ def get_dataproc_normal_job_logs_with_id(
 # --- Main Tool Function (Orchestrates the log retrieval) ---
 
 
-def get_dataproc_job_logs_with_id(project_id: str, region: str, job_id: str) -> dict[str, str]:
+def get_dataproc_job_logs_with_id(
+    project_id: str, region: str, job_id: str
+) -> dict[str, str]:
     """
     Retrieves Dataproc job logs by executing the 'gcloud dataproc wait' command,
     attempting 'batches' first, then falling back to 'jobs'.
@@ -291,7 +295,9 @@ def get_dataproc_job_logs_with_id(project_id: str, region: str, job_id: str) -> 
 
     try:
         # 1. Try as Dataproc Batch
-        result = get_dataproc_normal_job_logs_with_id(project_id, region, job_id, "batches")
+        result = get_dataproc_normal_job_logs_with_id(
+            project_id, region, job_id, "batches"
+        )
         command_type = "Batch"
 
         # Check if batches failed and contained "No such batch"
@@ -304,7 +310,9 @@ def get_dataproc_job_logs_with_id(project_id: str, region: str, job_id: str) -> 
             and "Not found" in result.stderr
         ):
             # 2. Fallback: Try as traditional Dataproc Job
-            result = get_dataproc_normal_job_logs_with_id(project_id, region, job_id, "jobs")
+            result = get_dataproc_normal_job_logs_with_id(
+                project_id, region, job_id, "jobs"
+            )
             command_type = "Job"
 
         # Handle core command execution failures (e.g., gcloud not found)

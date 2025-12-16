@@ -65,7 +65,9 @@ def find_files(directory: str, regex: str) -> list:
             "*Config*",
         ]
 
-        result = subprocess.run(readmd_run_cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            readmd_run_cmd, capture_output=True, text=True, check=True
+        )
         files = result.stdout.splitlines()
 
         return files
@@ -169,7 +171,9 @@ def get_dataproc_template_mapping(
         return json.dumps(response)
 
     except Exception as err:  # pylint: disable=broad-exception-caught
-        logger.error("An error occurred while mapping the template: %s", err, exc_info=True)
+        logger.error(
+            "An error occurred while mapping the template: %s", err, exc_info=True
+        )
         return json.dumps({})
 
 
@@ -255,7 +259,9 @@ def validate_input_params(template_params: dict, input_params: dict) -> dict[str
             return {"validation_result": "failed", "comment": "Invalid param passed"}
 
         # CHECK WHETHER ALL REQUIRED PARAMS ARE PASSED OR NOT
-        all_required_params = set(required_template_params).issubset(set(input_params_name))
+        all_required_params = set(required_template_params).issubset(
+            set(input_params_name)
+        )
 
         if not all_required_params:
             return {"validation_result": "failed", "comment": "Missing required params"}
@@ -295,7 +301,9 @@ def update_dataproc_template(
         str: Path to the root of the temporary Dataproc template repository that
         includes the modified template.
     """
-    template_path = f"{template_dir}/{template_file_name}"  # PATH OF THE TEMPLATE TO BE RUN
+    template_path = (
+        f"{template_dir}/{template_file_name}"  # PATH OF THE TEMPLATE TO BE RUN
+    )
 
     # PATH OF THE TEMP FOLDER FOR THE GIVEN JOB RUN WITH TRANSFORMATION
     temp_template_repo_path = f"./{TEMP_DIR_PATH}/{run_id}/dataproc_template"
@@ -304,7 +312,9 @@ def update_dataproc_template(
     )  # PATH OF THE TEMPLATE TO BE RUN IN THE TEMP FOLDER
 
     # COPY THE ORIGINAL TEMPLATE TO THE TEMP FOLDER
-    shutil.copytree(f"./{TEMPLATE_REPO_PATH}", temp_template_repo_path, dirs_exist_ok=True)
+    shutil.copytree(
+        f"./{TEMPLATE_REPO_PATH}", temp_template_repo_path, dirs_exist_ok=True
+    )
 
     # READ THE ORIGINAL TEMPLATE
     with open(template_path, "r", encoding="utf-8") as f:

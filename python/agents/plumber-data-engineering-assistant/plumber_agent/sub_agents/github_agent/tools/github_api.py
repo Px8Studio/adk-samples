@@ -51,7 +51,9 @@ def authenticate_github(token: str = "") -> dict[str, Any]:
     except requests.exceptions.HTTPError as e:
         logger.error("An error occurred: %s", e, exc_info=True)
         if e.response.status_code == 401:
-            msg = "Authentication failed (401): Bad credentials. Please check your token."
+            msg = (
+                "Authentication failed (401): Bad credentials. Please check your token."
+            )
             return {"status": "error", "message": msg}
         msg = f"Authentication failed ({e.response.status_code}): {e.response.text}"
         return {"status": "error", "message": msg}

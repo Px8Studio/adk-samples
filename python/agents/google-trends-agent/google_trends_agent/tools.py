@@ -1,7 +1,8 @@
-from google.cloud import bigquery
 import json
 import os
+
 from dotenv import load_dotenv
+from google.cloud import bigquery
 
 # Construct the path to the .env file in the parent directory
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")

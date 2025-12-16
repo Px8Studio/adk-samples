@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "parallel_task_decomposition_execution"
+version = "0.1"
+description = "A sample agent that demonstrates parallel task decomposition and execution."
+authors = ["Google"]
+readme = "README.md"
+packages = [{include = "parallel_task_decomposition_execution"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+google-adk = "1.19.0"
+python-dotenv = "1.2.1"
+google-cloud-aiplatform = {version = "1.128.0", extras = ["adk", "agent_engines"]}
+mcp = "1.21.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

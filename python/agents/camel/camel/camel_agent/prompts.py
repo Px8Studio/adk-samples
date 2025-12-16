@@ -14,26 +14,31 @@
 
 """Pipeline element which generates a system prompt to generate code given the tools."""
 
-from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 import dataclasses
 import enum
 import inspect
 import re
 import textwrap
 import types
-from typing import Annotated, Any, Concatenate, TypeAlias, get_args, get_origin, get_type_hints
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
+from typing import (
+    Annotated,
+    Any,
+    Concatenate,
+    TypeAlias,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 import docstring_parser
-from docstring_parser import common
 import pydantic
 import pydantic.fields
-from typing_extensions import ParamSpec
-from typing_extensions import TypeVar
+from docstring_parser import common
+from typing_extensions import ParamSpec, TypeVar
 
 from ..camel_library import function_types
-from ..camel_library.interpreter import camel_value
-from ..camel_library.interpreter import library
-
+from ..camel_library.interpreter import camel_value, library
 
 DocstringParam = common.DocstringParam
 Function = function_types.Function
@@ -51,292 +56,289 @@ This is **extremely important** as wrong data cannot be detected! When asked for
 
 
 def _extract_metadata_dict_from_string(metadata_string, allowed_metadata):
-  """Extracts a dictionary containing arguments of metadata objects from a string representation, considering only allowed metadata.
+    """Extracts a dictionary containing arguments of metadata objects from a string representation, considering only allowed metadata.
 
-  Uses regular expressions.
+    Uses regular expressions.
 
-  Args:
-      metadata_string: A string representation of metadata objects (e.g.,
-        "[Ge(ge=4), MultipleOf(multiple_of=5)]").
-      allowed_metadata: A list of allowed metadata names (e.g., ['strict', 'gt',
-        'ge', ...]).
+    Args:
+        metadata_string: A string representation of metadata objects (e.g.,
+          "[Ge(ge=4), MultipleOf(multiple_of=5)]").
+        allowed_metadata: A list of allowed metadata names (e.g., ['strict', 'gt',
+          'ge', ...]).
 
-  Returns:
-      A dictionary where keys are metadata names and values are their
-      corresponding values
-      extracted from the string.  Returns an empty dictionary if no relevant
-      metadata is found.
-  """
-  result_dict = {}
-  for metadata_name in allowed_metadata:
-    matches = re.findall(rf"{metadata_name}=([^,\)]+)", metadata_string)
-    for match in matches:
-      result_dict[metadata_name] = match
+    Returns:
+        A dictionary where keys are metadata names and values are their
+        corresponding values
+        extracted from the string.  Returns an empty dictionary if no relevant
+        metadata is found.
+    """
+    result_dict = {}
+    for metadata_name in allowed_metadata:
+        matches = re.findall(rf"{metadata_name}=([^,\)]+)", metadata_string)
+        for match in matches:
+            result_dict[metadata_name] = match
 
-  return result_dict
+    return result_dict
 
 
 def _extract_field_info_args(
     field: pydantic.fields.FieldInfo,  # type: ignore
 ) -> dict[str, str]:
-  """Extracts arguments within parentheses and converts them into a dictionary.
+    """Extracts arguments within parentheses and converts them into a dictionary.
 
-  Args:
-      field: The input string containing the arguments within parentheses.
+    Args:
+        field: The input string containing the arguments within parentheses.
 
-  Returns:
-      A dictionary of argument names and values, or None if no parentheses or
-      arguments are found.
-  """
-  text = field.__repr__()
-  args_to_ignore = {"annotation", "metadata", "required"}
-  match = re.search(r"FieldInfo\((.*?)\)", text)
-  assert match is not None
-  args_str = match.group(1)
-  args_dict = {}
-  for match in re.finditer(
-      r"(\w+)=([^,]+?)(?=,\s*\w+=|$)", args_str
-  ):  # Updated regex
-    name = match.group(1).strip()
-    if name not in args_to_ignore:
-      value = match.group(2).strip()
-      args_dict[name] = value
-    elif name == "metadata":
-      value = match.group(2).strip()
-      args_dict |= _extract_metadata_dict_from_string(
-          value, list(field.metadata_lookup.keys())
-      )
-  return args_dict
+    Returns:
+        A dictionary of argument names and values, or None if no parentheses or
+        arguments are found.
+    """
+    text = field.__repr__()
+    args_to_ignore = {"annotation", "metadata", "required"}
+    match = re.search(r"FieldInfo\((.*?)\)", text)
+    assert match is not None
+    args_str = match.group(1)
+    args_dict = {}
+    for match in re.finditer(
+        r"(\w+)=([^,]+?)(?=,\s*\w+=|$)", args_str
+    ):  # Updated regex
+        name = match.group(1).strip()
+        if name not in args_to_ignore:
+            value = match.group(2).strip()
+            args_dict[name] = value
+        elif name == "metadata":
+            value = match.group(2).strip()
+            args_dict |= _extract_metadata_dict_from_string(
+                value, list(field.metadata_lookup.keys())
+            )
+    return args_dict
 
 
 def _get_pydantic_model_code(
     obj: type[pydantic.BaseModel],
 ) -> tuple[str, set[type[Any]]]:
-  """Returns the code of a Pydantic BaseModel and a list of its non-built-in type dependencies.
+    """Returns the code of a Pydantic BaseModel and a list of its non-built-in type dependencies.
 
-  Args:
-      obj: The Pydantic BaseModel class.
+    Args:
+        obj: The Pydantic BaseModel class.
 
-  Returns:
-      A tuple containing:
-      - The code of the class as a string.
-      - A set of non-built-in types used as types in the model's fields,
-      including other BaseModels and Enums.
-  """
-  class_name = obj.__name__
-  code_lines = [f"class {class_name}(BaseModel):"]
+    Returns:
+        A tuple containing:
+        - The code of the class as a string.
+        - A set of non-built-in types used as types in the model's fields,
+        including other BaseModels and Enums.
+    """
+    class_name = obj.__name__
+    code_lines = [f"class {class_name}(BaseModel):"]
 
-  dependencies = set()
-  for field_name, field in obj.model_fields.items():
-    type_annotation = _get_type_string(field.annotation)
-    field_info = _extract_field_info_args(field)
-    field_info_str = ", ".join(f"{k}={v}" for k, v in field_info.items())
-    field_code = (
-        f"{_INDENT}{field_name}: {type_annotation} = Field({field_info_str})"
-    )
+    dependencies = set()
+    for field_name, field in obj.model_fields.items():
+        type_annotation = _get_type_string(field.annotation)
+        field_info = _extract_field_info_args(field)
+        field_info_str = ", ".join(f"{k}={v}" for k, v in field_info.items())
+        field_code = (
+            f"{_INDENT}{field_name}: {type_annotation} = Field({field_info_str})"
+        )
 
-    code_lines.append(field_code)
-    _add_dependencies(field.annotation, dependencies)
+        code_lines.append(field_code)
+        _add_dependencies(field.annotation, dependencies)
 
-  code = "\n".join(code_lines).strip()
-  return code, dependencies
+    code = "\n".join(code_lines).strip()
+    return code, dependencies
 
 
 def _get_enum_code(obj: type[enum.Enum]) -> str:
-  """Returns the code of an Enum.
+    """Returns the code of an Enum.
 
-  Args:
-      obj: The Enum class.
+    Args:
+        obj: The Enum class.
 
-  Returns:
-      The code of the Enum as a string.
-  """
-  class_name = obj.__name__
-  code_lines = [f"class {class_name}(enum.Enum):"]
-  for name, member in obj.__members__.items():
-    code_lines.append(f"{_INDENT}{name} = {member.value!r}")
-  code = "\n".join(code_lines).strip()
-  return code
+    Returns:
+        The code of the Enum as a string.
+    """
+    class_name = obj.__name__
+    code_lines = [f"class {class_name}(enum.Enum):"]
+    for name, member in obj.__members__.items():
+        code_lines.append(f"{_INDENT}{name} = {member.value!r}")
+    code = "\n".join(code_lines).strip()
+    return code
 
 
 TypesToRepresent: TypeAlias = pydantic.BaseModel | enum.Enum
 
 
 def _get_code_and_dependencies(obj) -> tuple[str, set[type[TypesToRepresent]]]:
-  """Returns the code of a Pydantic BaseModel or Enum and a list of its non-built-in type dependencies.
+    """Returns the code of a Pydantic BaseModel or Enum and a list of its non-built-in type dependencies.
 
-  Args:
-      obj: The Pydantic BaseModel or Enum class.
+    Args:
+        obj: The Pydantic BaseModel or Enum class.
 
-  Returns:
-      A tuple containing:
-      - The code of the class as a string.
-      - A list of non-built-in types used as types in the model's fields,
-      including other BaseModels and Enums.
-  """
-  if issubclass(obj, pydantic.BaseModel):
-    code, dependencies = _get_pydantic_model_code(obj)
-  elif issubclass(obj, enum.Enum):
-    code = _get_enum_code(obj)
-    dependencies = set()
-  else:
-    raise TypeError(f"Unsupported type: {obj}")
+    Returns:
+        A tuple containing:
+        - The code of the class as a string.
+        - A list of non-built-in types used as types in the model's fields,
+        including other BaseModels and Enums.
+    """
+    if issubclass(obj, pydantic.BaseModel):
+        code, dependencies = _get_pydantic_model_code(obj)
+    elif issubclass(obj, enum.Enum):
+        code = _get_enum_code(obj)
+        dependencies = set()
+    else:
+        raise TypeError(f"Unsupported type: {obj}")
 
-  return code, dependencies
+    return code, dependencies
 
 
 def _add_dependencies(field_type, dependencies: set[type[TypesToRepresent]]):
-  """Adds the type to the dependencies set if it's a Pydantic BaseModel or Enum.
+    """Adds the type to the dependencies set if it's a Pydantic BaseModel or Enum.
 
-  Args:
-      field_type: The type to check.
-      dependencies: The set of dependencies to add to.
-  """
-  try:
-    if issubclass(field_type, pydantic.BaseModel) or issubclass(
-        field_type, enum.Enum
-    ):
-      dependencies.add(field_type)
-  except TypeError:
-    pass
+    Args:
+        field_type: The type to check.
+        dependencies: The set of dependencies to add to.
+    """
+    try:
+        if issubclass(field_type, pydantic.BaseModel) or issubclass(
+            field_type, enum.Enum
+        ):
+            dependencies.add(field_type)
+    except TypeError:
+        pass
 
-  origin = get_origin(field_type)
-  if origin is not None:
-    args = get_args(field_type)
-    for arg in args:
-      _add_dependencies(arg, dependencies)
+    origin = get_origin(field_type)
+    if origin is not None:
+        args = get_args(field_type)
+        for arg in args:
+            _add_dependencies(arg, dependencies)
 
 
 def get_code_recursive(base_type: type[TypesToRepresent]) -> dict[str, str]:
-  """Recursively gets the code for a Pydantic type and its dependencies.
+    """Recursively gets the code for a Pydantic type and its dependencies.
 
-  Args:
-      base_type: The Pydantic type to start from.
+    Args:
+        base_type: The Pydantic type to start from.
 
-  Returns:
-      A dictionary where keys are the names of the types and values are their
-      code.
-  """
-  code_dict = {}
-  dependencies = set()
+    Returns:
+        A dictionary where keys are the names of the types and values are their
+        code.
+    """
+    code_dict = {}
+    dependencies = set()
 
-  def _recursive_helper(obj):
-    code, deps = _get_code_and_dependencies(obj)
-    code_dict[obj.__name__] = code
-    dependencies.update(deps)
-    for dep in deps:
-      if dep.__name__ not in code_dict:
-        _recursive_helper(dep)
+    def _recursive_helper(obj):
+        code, deps = _get_code_and_dependencies(obj)
+        code_dict[obj.__name__] = code
+        dependencies.update(deps)
+        for dep in deps:
+            if dep.__name__ not in code_dict:
+                _recursive_helper(dep)
 
-  _recursive_helper(base_type)
-  return code_dict
+    _recursive_helper(base_type)
+    return code_dict
 
 
 def get_pydantic_types_definitions(
     functions: Iterable[function_types.Function],
 ) -> dict[str, str]:
-  """Given a list of functions, it returns the definitions of Pydantic BaseModels that are either argument or return types of the functions.
+    """Given a list of functions, it returns the definitions of Pydantic BaseModels that are either argument or return types of the functions.
 
-  It returns a dictionary with the BaseModel name and its code definition.
+    It returns a dictionary with the BaseModel name and its code definition.
 
-  Args:
-      functions: A list of functions.
+    Args:
+        functions: A list of functions.
 
-  Returns:
-      A dictionary where keys are the names of the Pydantic types and values are
-      their code.
-  """
-  definitions = {}
-  for function in functions:
-    for param_type in function.parameters.model_fields.values():
-      if (
-          isinstance(param_type.annotation, type)
-          and not isinstance(param_type.annotation, types.GenericAlias)
-          and (
-              issubclass(param_type.annotation, pydantic.BaseModel)
-              or issubclass(param_type.annotation, enum.Enum)
-          )
-      ):
-        model_name = param_type.annotation.__name__
-        if model_name not in definitions:
-          definitions |= get_code_recursive(param_type.annotation)
-    r_type = function.return_type
-    if (
-        isinstance(r_type, type)
-        and not isinstance(r_type, types.GenericAlias)
-        and (
-            issubclass(r_type, pydantic.BaseModel)
-            or issubclass(r_type, enum.Enum)
-        )
-    ):
-      model_name = r_type.__name__
-      if model_name not in definitions:
-        definitions |= get_code_recursive(r_type)
-    # If generic type, also get the content
-    for arg in get_args(r_type):
-      if (
-          isinstance(arg, type)
-          and not isinstance(arg, types.GenericAlias)
-          and (
-              issubclass(arg, pydantic.BaseModel) or issubclass(arg, enum.Enum)
-          )
-      ):
-        definitions |= get_code_recursive(arg)
-  return definitions
+    Returns:
+        A dictionary where keys are the names of the Pydantic types and values are
+        their code.
+    """
+    definitions = {}
+    for function in functions:
+        for param_type in function.parameters.model_fields.values():
+            if (
+                isinstance(param_type.annotation, type)
+                and not isinstance(param_type.annotation, types.GenericAlias)
+                and (
+                    issubclass(param_type.annotation, pydantic.BaseModel)
+                    or issubclass(param_type.annotation, enum.Enum)
+                )
+            ):
+                model_name = param_type.annotation.__name__
+                if model_name not in definitions:
+                    definitions |= get_code_recursive(param_type.annotation)
+        r_type = function.return_type
+        if (
+            isinstance(r_type, type)
+            and not isinstance(r_type, types.GenericAlias)
+            and (
+                issubclass(r_type, pydantic.BaseModel) or issubclass(r_type, enum.Enum)
+            )
+        ):
+            model_name = r_type.__name__
+            if model_name not in definitions:
+                definitions |= get_code_recursive(r_type)
+        # If generic type, also get the content
+        for arg in get_args(r_type):
+            if (
+                isinstance(arg, type)
+                and not isinstance(arg, types.GenericAlias)
+                and (issubclass(arg, pydantic.BaseModel) or issubclass(arg, enum.Enum))
+            ):
+                definitions |= get_code_recursive(arg)
+    return definitions
 
 
 def _get_type_string(type_):
-  """Returns the string representation of a type.
+    """Returns the string representation of a type.
 
-  Args:
-      type_: The type to convert to a string.
+    Args:
+        type_: The type to convert to a string.
 
-  Returns:
-      The string representation of the type.
-  """
-  if type_ is inspect._empty or type_ is None:  # pylint: disable=protected-access
-    return "Any"
-  elif type_ is types.NoneType:
-    return "None"
-  elif type_ is Ellipsis:  # Special case for Ellipsis (...)
-    return "..."
-  elif origin := get_origin(type_):
-    args = get_args(type_)
-    if origin is types.UnionType:
-      return " | ".join(_get_type_string(arg) for arg in args)
+    Returns:
+        The string representation of the type.
+    """
+    if type_ is inspect._empty or type_ is None:  # pylint: disable=protected-access
+        return "Any"
+    elif type_ is types.NoneType:
+        return "None"
+    elif type_ is Ellipsis:  # Special case for Ellipsis (...)
+        return "..."
+    elif origin := get_origin(type_):
+        args = get_args(type_)
+        if origin is types.UnionType:
+            return " | ".join(_get_type_string(arg) for arg in args)
+        else:
+            args_str = ", ".join(_get_type_string(arg) for arg in args)
+            return f"{origin.__name__}[{args_str}]"
+    elif hasattr(type_, "__name__"):
+        return type_.__name__
+    elif isinstance(type_, str):
+        return type_
     else:
-      args_str = ", ".join(_get_type_string(arg) for arg in args)
-      return f"{origin.__name__}[{args_str}]"
-  elif hasattr(type_, "__name__"):
-    return type_.__name__
-  elif isinstance(type_, str):
-    return type_
-  else:
-    return str(type_)
+        return str(type_)
 
 
 def _get_function_parameters(
     parameters: dict[str, pydantic.fields.FieldInfo],  # type: ignore
 ) -> str:
-  param_strings = []
-  for k, t in parameters.items():
-    annotation = t.annotation
-    type_str = _get_type_string(annotation)
-    param_strings.append(f"{k}: {type_str}")
-  return ", ".join(param_strings)
+    param_strings = []
+    for k, t in parameters.items():
+        annotation = t.annotation
+        type_str = _get_type_string(annotation)
+        param_strings.append(f"{k}: {type_str}")
+    return ", ".join(param_strings)
 
 
 def function_to_python_definition(
     function: function_types.Function,
 ) -> str:
-  """Converts a function to a Python definition in code."""
-  name = function.name
-  parameters = _get_function_parameters(function.parameters.model_fields)
-  first_line, *other_lines = function.full_docstring.split("\n")
-  docstring = textwrap.indent(
-      textwrap.dedent("\n".join(other_lines)), _INDENT
-  ).strip()
-  return f"""\
+    """Converts a function to a Python definition in code."""
+    name = function.name
+    parameters = _get_function_parameters(function.parameters.model_fields)
+    first_line, *other_lines = function.full_docstring.split("\n")
+    docstring = textwrap.indent(
+        textwrap.dedent("\n".join(other_lines)), _INDENT
+    ).strip()
+    return f"""\
 def {name}({parameters}) -> {_get_type_string(function.return_type)}:
 {_INDENT}\"\"\"{first_line}
 
@@ -348,27 +350,27 @@ def {name}({parameters}) -> {_get_type_string(function.return_type)}:
 def _get_available_functions_list(
     functions_dict: dict[str, Any],
 ) -> str:
-  return "".join(f"  - `{f}`\n" for f in functions_dict)
+    return "".join(f"  - `{f}`\n" for f in functions_dict)
 
 
 def _get_available_methods_list(
     methods_dict: dict[str, dict[str, Any]],
 ) -> str:
-  return "".join(
-      f"  - `{obj_type}`:\n{''.join(f'    - `{f}`{_NEWLINE}' for f in methods_dict[obj_type])}"
-      for obj_type in methods_dict
-  )
+    return "".join(
+        f"  - `{obj_type}`:\n{''.join(f'    - `{f}`{_NEWLINE}' for f in methods_dict[obj_type])}"
+        for obj_type in methods_dict
+    )
 
 
 def _get_available_classes_list(
     methods_dict: dict[str, camel_value.CaMeLClass],
     classes_to_exclude: frozenset[str],
 ) -> str:
-  return "".join(
-      f"  - `{obj_type}`:\n{''.join(f'    - `{f}`{_NEWLINE}' for f in methods_dict[obj_type].methods)}"
-      for obj_type in methods_dict
-      if obj_type not in classes_to_exclude
-  )
+    return "".join(
+        f"  - `{obj_type}`:\n{''.join(f'    - `{f}`{_NEWLINE}' for f in methods_dict[obj_type].methods)}"
+        for obj_type in methods_dict
+        if obj_type not in classes_to_exclude
+    )
 
 
 NOTES = """\
@@ -428,16 +430,14 @@ def generate_camel_system_prompt(
     functions: Sequence[function_types.Function],
     classes_to_exclude: frozenset[str] = frozenset(),
 ) -> str:
-  """Generates a system prompt with the provided functions."""
-  function_definitions = (function_to_python_definition(f) for f in functions)
+    """Generates a system prompt with the provided functions."""
+    function_definitions = (function_to_python_definition(f) for f in functions)
 
-  pydantic_types_definitions = get_pydantic_types_definitions(
-      functions
-  ).values()
+    pydantic_types_definitions = get_pydantic_types_definitions(functions).values()
 
-  if pydantic_types_definitions:
+    if pydantic_types_definitions:
 
-    types_note = f"""
+        types_note = f"""
 ### Available types
 
 The types used above which are not built-in are Pydantic BaseModels or Enums defined like this:
@@ -451,10 +451,10 @@ All these types are available to you for use, without need to re-define or impor
 It is absolutely important that you do not assume that the type used for the fields are built in. For example, do not try to compare datetime objects with strings.
 
 """
-  else:
-    types_note = ""
+    else:
+        types_note = ""
 
-  prompt = f"""\
+    prompt = f"""\
 You are a helpful assistant that rewrites user requests to structured Python code. You must specify the code within a fenced code block.
 
 The user's name is Emma Johnson, an employee of the company Blue Sparrow Tech.
@@ -510,7 +510,7 @@ Additionally, you have access to the following functions that allow you to use e
 {NOTES}
 """
 
-  return prompt
+    return prompt
 
 
 parse = docstring_parser.parse
@@ -520,53 +520,44 @@ BaseModel = pydantic.BaseModel
 
 @dataclasses.dataclass(frozen=True)
 class Depends:
-  """A dependency for a function.
+    """A dependency for a function.
 
-  It is used to extract information from the environment to pass to the
-  function.
-  """
+    It is used to extract information from the environment to pass to the
+    function.
+    """
 
-  env_dependency: str | Callable[[BaseModel], BaseModel]
-  """The name of the attribute to extract from the environment or a function that returns the attribute from the environment."""
+    env_dependency: str | Callable[[BaseModel], BaseModel]
+    """The name of the attribute to extract from the environment or a function that returns the attribute from the environment."""
 
-  def extract_dep_from_env(self, env: BaseModel) -> BaseModel:
-    """Extracts the dependency from the environment."""
-    if callable(self.env_dependency):
-      return self.env_dependency(env)
-    return getattr(env, self.env_dependency)
+    def extract_dep_from_env(self, env: BaseModel) -> BaseModel:
+        """Extracts the dependency from the environment."""
+        if callable(self.env_dependency):
+            return self.env_dependency(env)
+        return getattr(env, self.env_dependency)
 
-  def __repr__(self) -> str:
-    return f"Depends('{self.env_dependency}')"
+    def __repr__(self) -> str:
+        return f"Depends('{self.env_dependency}')"
 
 
 class FunctionCall(BaseModel):
-  """An object containing information about a function call requested by an agent."""
+    """An object containing information about a function call requested by an agent."""
 
-  function: str
-  """The name of the function to call."""
-  args: MutableMapping[str, "FunctionCallArgTypes"]
-  """The arguments to pass to the function."""
-  id: str | None = None
-  """An optional ID for the function call. E.g., used by OpenAI and Anthropic."""
-  placeholder_args: Mapping[str, "FunctionCallArgTypes"] | None = None
-  """An optional dictionary of placeholder arguments to use in by ground truth agent in injection tasks."""
+    function: str
+    """The name of the function to call."""
+    args: MutableMapping[str, "FunctionCallArgTypes"]
+    """The arguments to pass to the function."""
+    id: str | None = None
+    """An optional ID for the function call. E.g., used by OpenAI and Anthropic."""
+    placeholder_args: Mapping[str, "FunctionCallArgTypes"] | None = None
+    """An optional dictionary of placeholder arguments to use in by ground truth agent in injection tasks."""
 
 
-FunctionCallArgTypes = (
-    str | int | float | bool | None | dict | list | FunctionCall
-)
+FunctionCallArgTypes = str | int | float | bool | None | dict | list | FunctionCall
 """Valid types for function call arguments."""
 
 
 FunctionReturnType: TypeAlias = (
-    BaseModel
-    | Sequence["FunctionReturnType"]
-    | dict
-    | str
-    | int
-    | float
-    | bool
-    | None
+    BaseModel | Sequence["FunctionReturnType"] | dict | str | int | float | bool | None
 )
 """Union of valid return types for functions. The default [FunctionsRuntime][agentdojo.functions_runtime.FunctionsRuntime]
 is not guaranteed to work with other types."""
@@ -585,75 +576,75 @@ def _parse_args(
     field_fn: Callable[..., Any] = pydantic.Field,
     create_model_fn: Callable[..., type[BM]] = pydantic.create_model,
 ) -> type[BM]:
-  """Parses a list of DocstringParams into a Pydantic model."""
-  params = {}
-  for arg in params_docs:
-    arg_name = arg.arg_name
-    if arg.description is None:
-      raise ValueError(f"Argument {arg_name} has no description")
-    arg_type = signature.parameters[arg_name].annotation
-    default_value = signature.parameters[arg_name].default
-    params[arg_name] = (
-        arg_type,
-        field_fn(
-            description=arg.description,
-            default=...
-            if default_value == inspect.Parameter.empty
-            else default_value,
-        ),
-    )
+    """Parses a list of DocstringParams into a Pydantic model."""
+    params = {}
+    for arg in params_docs:
+        arg_name = arg.arg_name
+        if arg.description is None:
+            raise ValueError(f"Argument {arg_name} has no description")
+        arg_type = signature.parameters[arg_name].annotation
+        default_value = signature.parameters[arg_name].default
+        params[arg_name] = (
+            arg_type,
+            field_fn(
+                description=arg.description,
+                default=(
+                    ... if default_value == inspect.Parameter.empty else default_value
+                ),
+            ),
+        )
 
-  return create_model_fn(f"Input schema for `{function_name}`", **params)
+    return create_model_fn(f"Input schema for `{function_name}`", **params)
 
 
 def _get_dependencies(function: Callable[P, T]) -> dict[str, Depends]:
-  arg_types = get_type_hints(function, include_extras=True)
-  dependencies: dict[str, Depends] = {}
-  for arg_name, arg_type in arg_types.items():
-    if get_origin(arg_type) is Annotated:
-      if isinstance(dependency := arg_type.__metadata__[0], Depends):
-        dependencies[arg_name] = dependency
-  return dependencies
+    arg_types = get_type_hints(function, include_extras=True)
+    dependencies: dict[str, Depends] = {}
+    for arg_name, arg_type in arg_types.items():
+        if get_origin(arg_type) is Annotated:
+            if isinstance(dependency := arg_type.__metadata__[0], Depends):
+                dependencies[arg_name] = dependency
+    return dependencies
 
 
 def make_function(function: Callable[..., T]) -> Function:
-  """Creates a [`Function`][agentdojo.functions_runtime.Function] instance from a function.
+    """Creates a [`Function`][agentdojo.functions_runtime.Function] instance from a function.
 
-  It does so by extracting the docstrings and type hints from the function. It
-  then creates
-  a Pydantic model for the input schema of the function.
+    It does so by extracting the docstrings and type hints from the function. It
+    then creates
+    a Pydantic model for the input schema of the function.
 
-  Note:
-      ReStructuredText is the recommended docstring format.
+    Note:
+        ReStructuredText is the recommended docstring format.
 
-  Args:
-      function: The function to create a
-        [`Function`][agentdojo.functions_runtime.Function] instance from. The
-        function should have docstrings with a short description of the function
-        and descriptions for each argument.
-        [`Depends`][agentdojo.functions_runtime.Depends] arguments should not be
-        documented in the docstring.
+    Args:
+        function: The function to create a
+          [`Function`][agentdojo.functions_runtime.Function] instance from. The
+          function should have docstrings with a short description of the function
+          and descriptions for each argument.
+          [`Depends`][agentdojo.functions_runtime.Depends] arguments should not be
+          documented in the docstring.
 
-  Returns:
-      A [`Function`][agentdojo.functions_runtime.Function] instance.
+    Returns:
+        A [`Function`][agentdojo.functions_runtime.Function] instance.
 
-  Raises:
-      ValueError: If the function has no docstring or short description, or if
-      the arguments docstrings are
-          invalid.
-  """
+    Raises:
+        ValueError: If the function has no docstring or short description, or if
+        the arguments docstrings are
+            invalid.
+    """
 
-  if not function.__doc__:
-    raise ValueError(f"Function {function.__name__} has no docstring")
-  function_docs = parse(function.__doc__)
-  if function_docs.short_description is None:
-    raise ValueError(f"Function {function.__name__} has no short description")
-  return Function[P, T](
-      name=function.__name__,
-      call=function,
-      parameters=_parse_args(
-          function.__name__, function_docs.params, inspect.signature(function)
-      ),
-      full_docstring=function.__doc__,
-      return_type=get_type_hints(function).get("return"),
-  )
+    if not function.__doc__:
+        raise ValueError(f"Function {function.__name__} has no docstring")
+    function_docs = parse(function.__doc__)
+    if function_docs.short_description is None:
+        raise ValueError(f"Function {function.__name__} has no short description")
+    return Function[P, T](
+        name=function.__name__,
+        call=function,
+        parameters=_parse_args(
+            function.__name__, function_docs.params, inspect.signature(function)
+        ),
+        full_docstring=function.__doc__,
+        return_type=get_type_hints(function).get("return"),
+    )

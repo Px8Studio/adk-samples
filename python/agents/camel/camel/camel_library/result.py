@@ -26,12 +26,12 @@ _E = TypeVar("_E")
 
 @dataclasses.dataclass(frozen=True)
 class Ok(Generic[_T]):
-  value: _T
+    value: _T
 
 
 @dataclasses.dataclass(frozen=True)
 class Error(Generic[_E]):
-  error: _E
+    error: _E
 
 
 Result: TypeAlias = Ok[_T] | Error[_E]

@@ -20,46 +20,45 @@ from google.genai import types
 
 from ..camel_library import function_types
 
-
 FunctionCall = function_types.FunctionCall
 
 
 def sanitized_part(part: types.Part) -> str:
-  """Returns a sanitized string representation of expected response parts."""
-  if part.thought and part.text:
-    return f"<thought>{part.text}</thought>\n"
-  if part.text:
-    return part.text
-  if part.function_call:
-    return f"FunctionCall({part.function_call})"
-  if part.function_response:
-    response_string = str(part.function_response)
-    return (
-        f"FunctionResponse({response_string[:256]}"
-        f"{'...' if len(response_string) > 256 else ''})"
-    )
-  if part.executable_code:
-    return f"ExecutableCode:\n```{part.executable_code.language}\n{part.executable_code.code}\n```"
-  if part.code_execution_result:
-    result_string = (
-        f"outcome={part.code_execution_result.outcome},"
-        f" output={part.code_execution_result.output}"
-    )
-    return (
-        f"CodeExecutionResult({result_string[:1024]}"
-        f"{'...' if len(result_string) > 1024 else ''})"
-    )
-  return ""
+    """Returns a sanitized string representation of expected response parts."""
+    if part.thought and part.text:
+        return f"<thought>{part.text}</thought>\n"
+    if part.text:
+        return part.text
+    if part.function_call:
+        return f"FunctionCall({part.function_call})"
+    if part.function_response:
+        response_string = str(part.function_response)
+        return (
+            f"FunctionResponse({response_string[:256]}"
+            f"{'...' if len(response_string) > 256 else ''})"
+        )
+    if part.executable_code:
+        return f"ExecutableCode:\n```{part.executable_code.language}\n{part.executable_code.code}\n```"
+    if part.code_execution_result:
+        result_string = (
+            f"outcome={part.code_execution_result.outcome},"
+            f" output={part.code_execution_result.output}"
+        )
+        return (
+            f"CodeExecutionResult({result_string[:1024]}"
+            f"{'...' if len(result_string) > 1024 else ''})"
+        )
+    return ""
 
 
 def extract_print_output(
     tool_calls: Iterable[FunctionCall],
 ) -> str:
-  """Extracts and concatenates arguments from print calls."""
+    """Extracts and concatenates arguments from print calls."""
 
-  printed_output = ""
-  print_calls = [tc for tc in tool_calls if tc.function == "print"]
-  for print_call in print_calls:
-    for arg_value in print_call.args.values():
-      printed_output += str(arg_value)
-  return printed_output
+    printed_output = ""
+    print_calls = [tc for tc in tool_calls if tc.function == "print"]
+    for print_call in print_calls:
+        for arg_value in print_call.args.values():
+            printed_output += str(arg_value)
+    return printed_output

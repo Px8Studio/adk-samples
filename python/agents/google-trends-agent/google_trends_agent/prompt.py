@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import os
+
 from jinja2 import Environment, FileSystemLoader
-from datetime import datetime, timedelta
 
 
 def load_few_shot_examples() -> str:

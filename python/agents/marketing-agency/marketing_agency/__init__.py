@@ -14,10 +14,12 @@
 
 """Marketing_coordinator Agent assists in creating effective online content."""
 
-import os
+import os  # noqa: F401
 
-import google.auth
-from dotenv import load_dotenv
+import google.auth  # noqa: F401
+from dotenv import load_dotenv  # noqa: F401
+
+from . import agent  # noqa: F401
 
 load_dotenv()
 
@@ -26,4 +28,3 @@ os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
 os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
-from . import agent
