@@ -38,7 +38,9 @@ from .tools.dataproc_workflow import create_workflow_template, list_workflow_tem
 root_agent = Agent(
     name="dataproc_agent",
     model=MODEL,
-    description=("An agent that is a Google Cloud automation engineer, specializing in Dataproc."),
+    description=(
+        "An agent that is a Google Cloud automation engineer, specializing in Dataproc."
+    ),
     instruction=(AGENT_INSTRUCTIONS),
     tools=[
         create_cluster,

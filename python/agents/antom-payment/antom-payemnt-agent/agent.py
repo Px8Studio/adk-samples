@@ -1,4 +1,5 @@
 import os
+
 from google.adk.agents import Agent
 from google.adk.tools import MCPToolset
 from google.adk.tools.mcp_tool import StdioConnectionParams
@@ -22,10 +23,8 @@ root_agent = Agent(
         MCPToolset(
             connection_params=StdioConnectionParams(
                 server_params=StdioServerParameters(
-                    command='uvx',
-                    args=[
-                        "ant-intl-antom-mcp"
-                    ],
+                    command="uvx",
+                    args=["ant-intl-antom-mcp"],
                     # Pass the API key as an environment variable to the npx process
                     # This is how the MCP server for Antom payment expects the key.
                     env={
@@ -35,10 +34,9 @@ root_agent = Agent(
                         "ALIPAY_PUBLIC_KEY": os.getenv("ALIPAY_PUBLIC_KEY"),
                         "PAYMENT_REDIRECT_URL": os.getenv("PAYMENT_REDIRECT_URL"),
                         "PAYMENT_NOTIFY_URL": os.getenv("PAYMENT_NOTIFY_URL"),
-                    }
+                    },
                 ),
             ),
         )
     ],
 )
-

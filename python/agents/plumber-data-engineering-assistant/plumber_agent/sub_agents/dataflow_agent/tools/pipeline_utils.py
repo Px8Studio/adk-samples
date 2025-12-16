@@ -189,7 +189,9 @@ async def generate_and_run_beam_pipeline(
                     line = line_bytes.decode("utf-8", errors="ignore")
                     output += line
                     print(line, end="")
-                    match = re.search(r"(\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}-\d+)", line)
+                    match = re.search(
+                        r"(\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}-\d+)", line
+                    )
                     if match:
                         job_id_match = match
                         print(
@@ -203,7 +205,9 @@ async def generate_and_run_beam_pipeline(
                     process.terminate()
                     await asyncio.wait_for(process.wait(), timeout=10)
                 except asyncio.TimeoutError:
-                    print("--- WARNING: Subprocess did not terminate gracefully, killing it. ---")
+                    print(
+                        "--- WARNING: Subprocess did not terminate gracefully, killing it. ---"
+                    )
                     process.kill()
                 except ProcessLookupError:
                     pass
@@ -213,7 +217,9 @@ async def generate_and_run_beam_pipeline(
                 output += stdout.decode("utf-8", errors="ignore")
                 if stderr:
                     output += stderr.decode("utf-8", errors="ignore")
-                raise subprocess.CalledProcessError(process.returncode or 1, command, output=output)
+                raise subprocess.CalledProcessError(
+                    process.returncode or 1, command, output=output
+                )
         else:  # Batch
             process = await asyncio.create_subprocess_exec(
                 *command,
@@ -225,11 +231,17 @@ async def generate_and_run_beam_pipeline(
                 "utf-8", errors="ignore"
             )
             if process.returncode != 0:
-                raise subprocess.CalledProcessError(process.returncode or 1, command, output=output)
-        job_id_match = re.search(r"jobId: '(\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}-\d+)'", output)
+                raise subprocess.CalledProcessError(
+                    process.returncode or 1, command, output=output
+                )
+        job_id_match = re.search(
+            r"jobId: '(\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}-\d+)'", output
+        )
 
         if not job_id_match:
-            job_id_match = re.search(r"(?P<id>\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}-\d+)", output)
+            job_id_match = re.search(
+                r"(?P<id>\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}-\d+)", output
+            )
 
         if not job_id_match:
             return json.dumps(
@@ -260,7 +272,9 @@ async def generate_and_run_beam_pipeline(
             bucket_name, *path_parts = gcs_bucket_path.replace("gs://", "").split("/")
             base_prefix = "/".join(filter(None, path_parts))
             script_filename = f"{sanitized_job_name}-{uuid.uuid4().hex[:8]}.py"
-            gcs_path_str = os.path.join(base_prefix, "generated_pipelines", script_filename)
+            gcs_path_str = os.path.join(
+                base_prefix, "generated_pipelines", script_filename
+            )
 
             bucket = storage_client.bucket(bucket_name)
             blob = bucket.blob(gcs_path_str)
@@ -280,7 +294,9 @@ async def generate_and_run_beam_pipeline(
             report_lines.append(f"\nThe pipeline script was saved to {gcs_path}")
         if gcs_error:
             status = "success_with_warning"
-            report_lines.append(f"\nWARNING: Failed to save the script to GCS. Error: {gcs_error}")
+            report_lines.append(
+                f"\nWARNING: Failed to save the script to GCS. Error: {gcs_error}"
+            )
 
         final_report = {
             "status": status,
@@ -301,7 +317,9 @@ async def generate_and_run_beam_pipeline(
         )
     except (OSError, ValueError) as e:
         logger.error("An error occurred: %s", e, exc_info=True)
-        return json.dumps({"status": "error", "error_message": f"Unexpected error: {str(e)}"})
+        return json.dumps(
+            {"status": "error", "error_message": f"Unexpected error: {str(e)}"}
+        )
     finally:
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
@@ -319,9 +337,13 @@ def review_dataflow_code(code: str) -> str:
         )
         model = GenerativeModel(MODEL)
         response = model.generate_content([DATAFLOW_CODE_REVIEWER_EXPERT_PROMPT, code])
-        reviewed_code = response.text.replace("```python", "").replace("```", "").strip()
+        reviewed_code = (
+            response.text.replace("```python", "").replace("```", "").strip()
+        )
         logger.info("Dataflow code review complete.")
         return reviewed_code
     except (ValueError, RuntimeError) as e:
-        logger.error("An error occurred while reviewing the Dataflow code: %s", e, exc_info=True)
+        logger.error(
+            "An error occurred while reviewing the Dataflow code: %s", e, exc_info=True
+        )
         return code

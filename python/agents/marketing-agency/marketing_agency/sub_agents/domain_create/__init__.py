@@ -14,4 +14,4 @@
 
 """Domain_create_agent: for suggesting meanigful DNS domain"""
 
-from .agent import domain_create_agent
+from .agent import domain_create_agent  # noqa: F401

@@ -13,9 +13,10 @@
 # limitations under the License.
 # add docstring to this module
 
-from datetime import datetime
 import os
+from datetime import datetime
 
+from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.tools import google_search
 from google.adk.tools.agent_tool import AgentTool
@@ -24,8 +25,6 @@ from google.adk.tools.mcp_tool import MCPToolset, StreamableHTTPConnectionParams
 from langchain_community.tools import StackExchangeTool
 from langchain_community.utilities import StackExchangeAPIWrapper
 from toolbox_core import ToolboxSyncClient
-
-from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()

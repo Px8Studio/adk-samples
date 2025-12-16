@@ -13,7 +13,9 @@ from .utils import _process_log_iterator
 logger = logging.getLogger("plumber-agent")
 
 
-def get_dataflow_job_logs_with_id(project_id: str, job_id: str, _limit: int = 10) -> dict[str, str]:
+def get_dataflow_job_logs_with_id(
+    project_id: str, job_id: str, _limit: int = 10
+) -> dict[str, str]:
     """
     Fetches log entries for a specific Dataflow job using its ID from Google Cloud Logging.
 
@@ -68,7 +70,10 @@ def get_dataflow_job_logs_with_id(project_id: str, job_id: str, _limit: int = 10
 
         return {
             "status": "success",
-            "report": (f"Fetched log entries of Job ID: {job_id}:\n" + "\n".join(collected_logs)),
+            "report": (
+                f"Fetched log entries of Job ID: {job_id}:\n"
+                + "\n".join(collected_logs)
+            ),
         }
 
     except StopIteration as err:

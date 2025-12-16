@@ -12,26 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
+import logging
 import os
+import sys
+
+import vertexai
+from dotenv import load_dotenv, set_key
+from google_trends_agent.agent import root_agent
+from vertexai import agent_engines
+from vertexai.preview.reasoning_engines import AdkApp
+
 try:
     import tomllib
 except ImportError:
     # For Python < 3.11
     import tomllib as tomllib
 
+
 # Add the project root to sys.path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-import vertexai
-from vertexai import agent_engines
-from vertexai.preview.reasoning_engines import AdkApp
-from google_trends_agent.agent import root_agent
-import logging
-import os
-from dotenv import set_key, load_dotenv
 
 load_dotenv()
 
@@ -42,13 +43,16 @@ GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION")
 STAGING_BUCKET = os.getenv("GOOGLE_CLOUD_STORAGE_BUCKET")
 
-ENV_FILE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "google_trends_agent", ".env"))
+ENV_FILE_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "google_trends_agent", ".env")
+)
 
 vertexai.init(
     project=GOOGLE_CLOUD_PROJECT,
     location=GOOGLE_CLOUD_LOCATION,
     staging_bucket=STAGING_BUCKET,
 )
+
 
 # Function to update the .env file
 def update_env_file(agent_engine_id, env_file_path):
@@ -58,6 +62,7 @@ def update_env_file(agent_engine_id, env_file_path):
         print(f"Updated AGENT_ENGINE_ID in {env_file_path} to {agent_engine_id}")
     except Exception as e:
         print(f"Error updating .env file: {e}")
+
 
 def load_requirements():
     """Loads requirements from pyproject.toml."""
@@ -88,7 +93,9 @@ remote_app = agent_engines.create(
 )
 
 # log remote_app
-logging.info(f"Deployed agent to Vertex AI Agent Engine successfully, resource name: {remote_app.resource_name}")
+logging.info(
+    f"Deployed agent to Vertex AI Agent Engine successfully, resource name: {remote_app.resource_name}"
+)
 
 # Update the .env file with the new Agent Engine ID
 update_env_file(remote_app.resource_name, ENV_FILE_PATH)

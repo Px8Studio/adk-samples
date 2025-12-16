@@ -1,0 +1,29 @@
+[project]
+name = "tau2-benchmark-agent"
+version = "0.1.0"
+description = "ADK Agent for Tau-Bench"
+authors = [{ name = "Google ADK Team", email = "no-reply@google.com" }]
+license = "Apache-2.0"
+readme = "README.md"
+dependencies = [
+    "google-adk==1.19.0",
+    "google-genai==1.51.0",
+    "loguru==0.7.3",
+    "tenacity==9.1.2",
+    "tau2 @ git+https://github.com/sierra-research/tau2-bench.git@cc97b34",
+]
+requires-python = ">=3.10"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tau2_agent*"]
+
+[tool.pytest.ini_options]
+pythonpath = "."
+asyncio_mode = "auto"

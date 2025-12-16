@@ -33,6 +33,7 @@ if os.getenv("GOOGLE_API_KEY"):
 else:
     # Vertex AI mode: Fall back to Google Cloud credentials
     import google.auth
+
     _, project_id = google.auth.default()
     os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
     os.environ["GOOGLE_CLOUD_LOCATION"] = "global"

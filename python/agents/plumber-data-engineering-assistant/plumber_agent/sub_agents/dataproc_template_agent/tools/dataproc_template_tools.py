@@ -89,12 +89,16 @@ def get_transformation_sql(gcs_url: str) -> dict[str, str]:
 
         return {"status": "success", "sql": output_sql}
     except Exception as err:  # pylint: disable=broad-exception-caught
-        logger.error("An error occurred in get_transformation_sql: %s", err, exc_info=True)
+        logger.error(
+            "An error occurred in get_transformation_sql: %s", err, exc_info=True
+        )
         return {"status": f"failure - {str(err)}", "sql": ""}
 
 
 # TOOL TO FETCH THE RELEAVANT DATAPROC TEMPLATE BASED ON USER INPUT
-def get_dataproc_template(user_prompt: str, language: LANGUAGE_OPTIONS) -> dict[str, str]:
+def get_dataproc_template(
+    user_prompt: str, language: LANGUAGE_OPTIONS
+) -> dict[str, str]:
     """
     Retrieves the most relevant Dataproc template based on the user's prompt
     and selected programming language (Python or Java).
@@ -134,12 +138,16 @@ def get_dataproc_template(user_prompt: str, language: LANGUAGE_OPTIONS) -> dict[
                 )
 
             # GET THE CORRECT TEMPLATE BASED ON THE USER PROMPT
-            matched_template = get_dataproc_template_mapping(readme_files, user_prompt, language)
+            matched_template = get_dataproc_template_mapping(
+                readme_files, user_prompt, language
+            )
             return matched_template
         return status
 
     except Exception as err:  # pylint: disable=broad-exception-caught
-        logger.error("An error occurred in get_dataproc_template: %s", err, exc_info=True)
+        logger.error(
+            "An error occurred in get_dataproc_template: %s", err, exc_info=True
+        )
         return {"status": "failed", "error": str(err)}
 
 
@@ -209,7 +217,9 @@ def run_dataproc_template(
         template_params_dict = json.loads(template_params)
 
         # VALIDATING THE USER INPUT PARAMS AGAINST THE TEMPLATE PARAMS
-        param_validation_result = validate_input_params(template_params_dict, input_params_dict)
+        param_validation_result = validate_input_params(
+            template_params_dict, input_params_dict
+        )
 
         # IF VALIDATION FAILS - RETURN THE FAILURE JSON
         if param_validation_result["validation_result"] != "success":
@@ -293,7 +303,9 @@ def run_dataproc_template(
             "run_cmd": run_cmd,
         }
     except Exception as err:  # pylint: disable=broad-exception-caught
-        logger.error("An error occurred in get_dataproc_template: %s", err, exc_info=True)
+        logger.error(
+            "An error occurred in get_dataproc_template: %s", err, exc_info=True
+        )
         # DELETE THE TEMP TEMPLATE DIR IF EXISTING
         if temp_template_repo_path:
             shutil.rmtree(f"./{TEMP_DIR_PATH}/{run_id}")

@@ -48,7 +48,9 @@ def get_dataflow_template_repo() -> dict[str, str]:
             repo = git.Repo(repo_path)
             repo.remotes.origin.pull("main")
         else:
-            git.Repo.clone_from(DATAFLOW_TEMPLATE_GIT_URL, to_path=repo_path, branch="main")
+            git.Repo.clone_from(
+                DATAFLOW_TEMPLATE_GIT_URL, to_path=repo_path, branch="main"
+            )
         return {"status": "success", "repo_path": repo_path}
     except git.exc.GitCommandError as err:
         logger.error("An error occurred: %s", err, exc_info=True)
@@ -178,7 +180,9 @@ def submit_dataflow_template(
         user_input_dict = json.loads(input_params)
         template_def = json.loads(template_params)
         template_def = (
-            template_def[0] if isinstance(template_def, list) and template_def else template_def
+            template_def[0]
+            if isinstance(template_def, list) and template_def
+            else template_def
         )
 
         if not isinstance(template_def, dict):
@@ -188,7 +192,9 @@ def submit_dataflow_template(
         if not template_gcs_path:
             return {"status": "failed", "comment": "Template GCS path not found."}
 
-        validation = validate_input_params(template_def.get("params", {}), user_input_dict)
+        validation = validate_input_params(
+            template_def.get("params", {}), user_input_dict
+        )
         if validation["validation_result"] != "success":
             return {
                 "status": "failed",

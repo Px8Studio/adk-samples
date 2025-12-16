@@ -35,7 +35,7 @@ from . import camel_value
 def camel_zip(
     *x: collections.abc.Iterable[typing.Any],
 ) -> list[tuple[typing.Any, ...]]:
-  return list(zip(*x))
+    return list(zip(*x))
 
 
 _T = typing.TypeVar("_T")
@@ -44,33 +44,36 @@ _T = typing.TypeVar("_T")
 def camel_enumerate(
     x: collections.abc.Iterable[_T], start: int = 0
 ) -> list[tuple[int, _T]]:
-  return list(enumerate(x, start))
+    return list(enumerate(x, start))
 
 
 def camel_reversed(x: collections.abc.Reversible[_T]) -> list[_T]:
-  return list(reversed(x))
+    return list(reversed(x))
 
 
 def camel_bool(x: object) -> bool:
-  return bool(x)
+    return bool(x)
 
 
 def camel_dir(x: object) -> list[str]:
-  return dir(x)
+    return dir(x)
 
 
 def camel_range(
-    start: int, stop: int | None = None, step: int | None = None, /
+    start: int,
+    stop: int | None = None,
+    step: int | None = None,
+    /,
 ) -> list[int]:
-  match (stop, step):
-    case None, None:
-      return list(range(start))
-    case (_, None):
-      return list(range(start, stop))
-    case (None, _):
-      raise TypeError("'NoneType' object cannot be interpreted as an integer")
-    case (_, _):
-      return list(range(start, stop, step))
+    match (stop, step):
+        case None, None:
+            return list(range(start))
+        case (_, None):
+            return list(range(start, stop))
+        case (None, _):
+            raise TypeError("'NoneType' object cannot be interpreted as an integer")
+        case (_, _):
+            return list(range(start, stop, step))
 
 
 # pylint: disable=unused-argument
@@ -83,7 +86,7 @@ def camel_print(
     file: typing.Any | None = None,
     flush: bool = False,
 ) -> None:
-  return None
+    return None
 
 
 # pylint: enable=unused-argument
@@ -125,9 +128,9 @@ See https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constant
 
 
 class NotEnoughInformationError(Exception):
-  """Raised when the PrivilegedLLM has not provided enough information to the QuarantinedLLM."""
+    """Raised when the PrivilegedLLM has not provided enough information to the QuarantinedLLM."""
 
-  ...
+    ...
 
 
 BUILT_IN_CLASSES: dict[str, camel_value.CaMeLClass] = {
@@ -164,9 +167,7 @@ BUILT_IN_CLASSES: dict[str, camel_value.CaMeLClass] = {
             "strftime": camel_value.make_builtin(
                 "strftime", datetime.datetime.strftime
             ),
-            "replace": camel_value.make_builtin(
-                "replace", datetime.datetime.replace
-            ),
+            "replace": camel_value.make_builtin("replace", datetime.datetime.replace),
             "isoformat": camel_value.make_builtin(
                 "isoformat", datetime.datetime.isoformat
             ),
@@ -218,9 +219,7 @@ BUILT_IN_CLASSES: dict[str, camel_value.CaMeLClass] = {
             "__sub__": camel_value.make_builtin(
                 "__sub__", datetime.timedelta.__sub__
             ),  # Operator method in methods
-            "__mul__": camel_value.make_builtin(
-                "__mul__", datetime.timedelta.__mul__
-            ),
+            "__mul__": camel_value.make_builtin("__mul__", datetime.timedelta.__mul__),
             "__truediv__": camel_value.make_builtin(
                 "__truediv__", datetime.timedelta.__truediv__
             ),
@@ -243,29 +242,17 @@ BUILT_IN_CLASSES: dict[str, camel_value.CaMeLClass] = {
         capabilities.Capabilities.camel(),
         (),
         {
-            "replace": camel_value.make_builtin(
-                "replace", datetime.date.replace
-            ),
-            "isoformat": camel_value.make_builtin(
-                "isoformat", datetime.date.isoformat
-            ),
-            "strftime": camel_value.make_builtin(
-                "strftime", datetime.date.strftime
-            ),
+            "replace": camel_value.make_builtin("replace", datetime.date.replace),
+            "isoformat": camel_value.make_builtin("isoformat", datetime.date.isoformat),
+            "strftime": camel_value.make_builtin("strftime", datetime.date.strftime),
             "fromisoformat": camel_value.make_builtin(
                 "fromisoformat",
                 datetime.date.fromisoformat,
                 is_class_method=True,
             ),
-            "__add__": camel_value.make_builtin(
-                "__add__", datetime.date.__add__
-            ),
-            "__radd__": camel_value.make_builtin(
-                "__radd__", datetime.date.__radd__
-            ),
-            "__sub__": camel_value.make_builtin(
-                "__sub__", datetime.date.__sub__
-            ),
+            "__add__": camel_value.make_builtin("__add__", datetime.date.__add__),
+            "__radd__": camel_value.make_builtin("__radd__", datetime.date.__radd__),
+            "__sub__": camel_value.make_builtin("__sub__", datetime.date.__sub__),
         },
         is_totally_ordered=True,
         is_builtin=True,
@@ -276,15 +263,9 @@ BUILT_IN_CLASSES: dict[str, camel_value.CaMeLClass] = {
         capabilities.Capabilities.camel(),
         (),
         {
-            "replace": camel_value.make_builtin(
-                "replace", datetime.time.replace
-            ),
-            "isoformat": camel_value.make_builtin(
-                "isoformat", datetime.time.isoformat
-            ),
-            "strftime": camel_value.make_builtin(
-                "strftime", datetime.time.strftime
-            ),
+            "replace": camel_value.make_builtin("replace", datetime.time.replace),
+            "isoformat": camel_value.make_builtin("isoformat", datetime.time.isoformat),
+            "strftime": camel_value.make_builtin("strftime", datetime.time.strftime),
             "fromisoformat": camel_value.make_builtin(
                 "fromisoformat",
                 datetime.date.fromisoformat,
@@ -303,9 +284,7 @@ BUILT_IN_CLASSES: dict[str, camel_value.CaMeLClass] = {
             "utcoffset": camel_value.make_builtin(
                 "utcoffset", datetime.timezone.utcoffset
             ),
-            "tzname": camel_value.make_builtin(
-                "tzname", datetime.timezone.tzname
-            ),
+            "tzname": camel_value.make_builtin("tzname", datetime.timezone.tzname),
             "dst": camel_value.make_builtin("dst", datetime.timezone.dst),
         },
         is_totally_ordered=False,
@@ -379,6 +358,6 @@ BUILT_IN_CLASSES: dict[str, camel_value.CaMeLClass] = {
 def make_builtins_namespace(
     variables: dict[str, camel_value.Value[Any]] | None = None,
 ) -> camel_value.Namespace:
-  return camel_value.Namespace(
-      variables=BUILT_IN_FUNCTIONS | BUILT_IN_CLASSES | (variables or {})
-  )
+    return camel_value.Namespace(
+        variables=(BUILT_IN_FUNCTIONS | BUILT_IN_CLASSES | (variables or {}))
+    )

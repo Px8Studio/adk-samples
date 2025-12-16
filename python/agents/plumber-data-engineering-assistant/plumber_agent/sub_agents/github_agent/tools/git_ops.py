@@ -111,7 +111,9 @@ def get_git_status(repo_path: str) -> dict[str, Any]:
             "modified_files": modified_files,
             "staged_files": staged_files,
             "untracked_files": list(untracked_files),
-            "total_changes": len(modified_files) + len(staged_files) + len(untracked_files),
+            "total_changes": len(modified_files)
+            + len(staged_files)
+            + len(untracked_files),
         }
     except InvalidGitRepositoryError as e:
         logger.error("An error occurred: %s", e, exc_info=True)
